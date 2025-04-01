@@ -83,6 +83,7 @@ ini_new ()
   ini->same_audio_distance = 2;
 
   ini->threads_count = 1;
+  ini->ebook_viewer = g_strdup ("apvlv");
 
   ini->thumb_size[0] = 512;
   ini->thumb_size[1] = 384;
@@ -216,6 +217,19 @@ ini_load (ini_t *ini, const gchar *file)
       ini->threads_count = count;
     }
 
+  tmpstr = g_key_file_get_string (ini->keyfile, "_", "ebook_viewer", &err);
+  if (err)
+    {
+      g_warning ("configuration file: %s value error: %s, set as default.",
+                 file, err->message);
+      g_error_free (err);
+    }
+  else
+    {
+      g_free (ini->ebook_viewer);
+      ini->ebook_viewer = g_strdup (tmpstr);
+    }
+
   if (g_key_file_has_key (ini->keyfile, "_", "compare_area", NULL))
     {
       ini->compare_area
@@ -279,6 +293,8 @@ ini_save (ini_t *ini, const gchar *file)
 
   g_key_file_set_integer (ini->keyfile, "_", "threads_count",
                           ini->threads_count);
+
+  g_key_file_set_string (ini->keyfile, "_", "ebook_viewer", ini->ebook_viewer);
 
   g_key_file_set_integer (ini->keyfile, "_", "compare_area",
                           ini->compare_area);

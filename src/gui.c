@@ -958,6 +958,7 @@ gui_pref_cb (GtkWidget *wid, gui_t *gui)
   GtkWidget *i_exts, *v_exts, *a_exts;
   GtkWidget *i_level, *v_level, *a_level;
   GtkWidget *thd_count;
+  GtkWidget *ebook_viewer;
   gchar *tmpstr;
   const gchar *entrystr;
   gint result, ivalue;
@@ -1041,7 +1042,7 @@ gui_pref_cb (GtkWidget *wid, gui_t *gui)
   gtk_box_pack_end (GTK_BOX (hbox), a_level, TRUE, TRUE, 5);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 10);
 
-  /* a_level */
+  /* threads_count */
   hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, FALSE);
   label = gtk_label_new (_ ("Threads Count"));
   gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, FALSE, 2);
@@ -1050,6 +1051,15 @@ gui_pref_cb (GtkWidget *wid, gui_t *gui)
   gtk_spin_button_set_value (GTK_SPIN_BUTTON (thd_count),
                              g_ini->threads_count);
   gtk_box_pack_end (GTK_BOX (hbox), thd_count, TRUE, TRUE, 5);
+  gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 10);
+
+  /* ebook viewer */
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, FALSE);
+  label = gtk_label_new (_ ("EBook Viewer"));
+  gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, FALSE, 2);
+  ebook_viewer = gtk_entry_new ();
+  gtk_entry_set_text (GTK_ENTRY (ebook_viewer), g_ini->ebook_viewer);
+  gtk_box_pack_end (GTK_BOX (hbox), ebook_viewer, TRUE, TRUE, 5);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 10);
 
   gtk_widget_show_all (gtk_dialog_get_content_area (GTK_DIALOG (dialog)));
@@ -1091,6 +1101,12 @@ gui_pref_cb (GtkWidget *wid, gui_t *gui)
 
   ivalue = (int)gtk_spin_button_get_value (GTK_SPIN_BUTTON (thd_count));
   g_ini->threads_count = ivalue;
+
+  entrystr = gtk_entry_get_text (GTK_ENTRY (ebook_viewer));
+  if (entrystr != NULL) {
+    g_free (g_ini->ebook_viewer);
+    g_ini->ebook_viewer = g_strdup (entrystr);
+  }
 
   ini_save (g_ini, FD_USR_CONF_FILE);
 
@@ -1951,6 +1967,17 @@ diff_dialog_new (gui_t *gui, const file_node *afn, const file_node *bfn)
 {
   diff_dialog *diffdia;
 
+  if (afn->type == FD_EBOOK && bfn->type == FD_EBOOK)
+    {
+      gchar *cmd1 = g_strdup_printf("apvlv \"%s\"", afn->path);
+      gchar *cmd2 = g_strdup_printf("apvlv \"%s\"", bfn->path);
+      g_spawn_command_line_async(cmd1, NULL);
+      g_spawn_command_line_async(cmd2, NULL);
+      g_free(cmd1);
+      g_free(cmd2);
+      return;
+    }
+
   diffdia = g_malloc0 (sizeof (diff_dialog));
 
   diffdia->gui = gui;
@@ -2099,6 +2126,10 @@ gui_append_same_slist (gui_t *gui, GSList *slist, const gchar *afile,
   else if (type == FD_SAME_AUDIO_HEAD || type == FD_SAME_AUDIO_TAIL)
     {
       filetype = FD_AUDIO;
+    }
+  else if (type == FD_SAME_EBOOK)
+    {
+      filetype = FD_EBOOK;
     }
 
   for (cur = slist; cur; cur = g_slist_next (cur))

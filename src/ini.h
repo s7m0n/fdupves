@@ -68,6 +68,8 @@ typedef struct
 
   gint threads_count;
 
+  gchar *ebook_viewer;
+
   gint thumb_size[2];
 
   gint video_timers[0x10][3];
