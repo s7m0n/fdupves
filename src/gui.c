@@ -421,7 +421,7 @@ gui_log (const gchar *log_domain, GLogLevelFlags log_level,
   if (gui->quit)
     return;
 
-  gdk_threads_enter ();
+  //gdk_threads_enter ();
   gtk_list_store_append (gui->logliststore, itr);
   gtk_list_store_set (gui->logliststore, itr, 0, fmt_message, -1);
 
@@ -436,7 +436,7 @@ gui_log (const gchar *log_domain, GLogLevelFlags log_level,
       gtk_tree_model_get_iter_first (GTK_TREE_MODEL (gui->logliststore), itr);
       gtk_list_store_remove (gui->logliststore, itr);
     }
-  gdk_threads_leave ();
+  //gdk_threads_leave ();
 }
 
 static void
