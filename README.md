@@ -4,11 +4,11 @@ fdupves
 
 # Synopsis
 
-fdupves is for finding duplicate video/image files in a given set of directories.
+fdupves is for finding duplicate video/image/audio/ebook files in a given set of directories.
 
 # Description
 
-Searches the given path for duplicate video or image files. Such files are found by Perceptual Hash of every file.
+Searches the given path for duplicate video/image/audio/ebook files. Such files are found by Perceptual Hash of every file.
 
 # Requirement
 
