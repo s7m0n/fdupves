@@ -37,14 +37,14 @@ struct gui_s
   gboolean quit;
 
   GtkWidget *widget;
-  GtkWidget *mainvbox;
+  GtkWidget *main_vbox;
   GtkWidget *progress;
 
   GtkToolItem *but_add;
   GtkToolItem *but_find;
   GtkToolItem *but_del;
 
-  GtkListStore *dirliststore;
+  GtkListStore *dir_store;
 
   GPtrArray *images;
   GPtrArray *videos;
@@ -56,13 +56,14 @@ struct gui_s
   GSList *same_ebooks;
   GSList *same_list;
 
-  GtkWidget *logtree;
-  GtkListStore *logliststore;
+  GtkWidget *log_tree;
+  GtkListStore *log_store;
 
-  GtkWidget *restree;
-  GtkTreeStore *restreestore;
-  GtkTreeSelection *resselect;
-  file_node **resselfiles;
+  GtkWidget *result_tree;
+  GtkTreeStore *result_store;
+  GtkTreeSelection *result_select;
+  GtkTreeIter *result_select_iters;
+  file_node **result_file_nodes;
 
   GAsyncQueue *step_queue;
   GAsyncQueue *log_queue;

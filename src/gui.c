@@ -150,7 +150,7 @@ static void gui_add_cb (GtkWidget *, gui_t *);
 
 static void gui_find_cb (GtkWidget *, gui_t *);
 
-static void gui_delsel_cb (GtkWidget *, gui_t *);
+static void gui_delete_seleted_cb (GtkWidget *, gui_t *);
 
 static void gui_pref_cb (GtkWidget *, gui_t *);
 
@@ -190,51 +190,51 @@ static gboolean gui_queue_timer_callback (gui_t *gui);
 static void gui_process_step (gui_t *gui, const find_step *step);
 static void gui_process_log (gui_t *gui, gchar *log);
 
-static void restree_sel_small_file (same_node *node, gui_t *);
+static void result_select_small_file (same_node *node, gui_t *);
 
-static void restree_sel_big_file (same_node *node, gui_t *);
+static void result_select_big_file (same_node *node, gui_t *);
 
-static void restree_sel_small_image (same_node *node, gui_t *);
+static void result_select_small_image (same_node *node, gui_t *);
 
-static void restree_sel_big_image (same_node *node, gui_t *);
+static void result_select_big_image (same_node *node, gui_t *);
 
-static void restree_sel_short_video (same_node *node, gui_t *);
+static void result_select_short_video (same_node *node, gui_t *);
 
-static void restree_sel_long_video (same_node *node, gui_t *);
+static void result_select_long_video (same_node *node, gui_t *);
 
-static void restree_sel_others (same_node *node, gui_t *);
+static void result_select_others (same_node *node, gui_t *);
 
-static void restree_filter_changed (GtkEntry *, gui_t *);
+static void result_filter_changed (GtkEntry *, gui_t *);
 
-static void restree_filter_focusin (GtkEntry *, gui_t *);
+static void result_filter_focusin (GtkEntry *, gui_t *);
 
-static void restree_selcombo_changed (GtkComboBox *, gui_t *);
+static void result_selcombo_changed (GtkComboBox *, gui_t *);
 
 static void dirlist_onactivated (GtkTreeView *, GtkTreePath *,
                                  GtkTreeViewColumn *, gui_t *);
 
-static gboolean restree_onbutpress (GtkWidget *, GdkEventButton *, gui_t *);
+static gboolean result_onbutpress (GtkWidget *, GdkEventButton *, gui_t *);
 
-static void restree_onactivated (GtkTreeView *, GtkTreePath *,
+static void result_onactivated (GtkTreeView *, GtkTreePath *,
                                  GtkTreeViewColumn *, gui_t *);
 
-static void restreesel_onchanged (GtkTreeSelection *, gui_t *);
+static void resultsel_onchanged (GtkTreeSelection *, gui_t *);
 
-static GtkWidget *restree_open_menuitem (gui_t *);
+static GtkWidget *result_open_menuitem (gui_t *);
 
-static GtkWidget *restree_opendir_menuitem (gui_t *);
+static GtkWidget *result_opendir_menuitem (gui_t *);
 
-static GtkWidget *restree_delete_menuitem (gui_t *);
+static GtkWidget *result_delete_menuitem (gui_t *);
 
-static GtkWidget *restree_diff_menuitem (gui_t *);
+static GtkWidget *result_diff_menuitem (gui_t *);
 
-static void restree_open (GtkMenuItem *, gui_t *);
+static void result_open (GtkMenuItem *, gui_t *);
 
-static void restree_opendir (GtkMenuItem *, gui_t *);
+static void result_opendir (GtkMenuItem *, gui_t *);
 
-static void restree_delete (GtkMenuItem *, gui_t *);
+static void result_delete (GtkMenuItem *, gui_t *);
 
-static void restree_diff (GtkMenuItem *, gui_t *);
+static void result_diff (GtkMenuItem *, gui_t *);
 
 #ifndef FDUPVES_THREAD_STACK_SIZE
 #define FDUPVES_THREAD_STACK_SIZE (1024 * 1024 * 10)
@@ -277,8 +277,8 @@ gui_init (int argc, char *argv[])
   g_signal_connect (G_OBJECT (gui->widget), "delete-event",
                     G_CALLBACK (gui_destroy_cb), gui);
 
-  gui->mainvbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, FALSE);
-  gtk_container_add (GTK_CONTAINER (gui->widget), gui->mainvbox);
+  gui->main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, FALSE);
+  gtk_container_add (GTK_CONTAINER (gui->widget), gui->main_vbox);
 
   toolbar_new (gui);
   mainframe_new (gui);
@@ -344,7 +344,7 @@ toolbar_new (gui_t *gui)
 
   toolbar = gtk_toolbar_new ();
   gtk_toolbar_set_style (GTK_TOOLBAR (toolbar), GTK_TOOLBAR_BOTH);
-  gtk_box_pack_start (GTK_BOX (gui->mainvbox), toolbar, FALSE, FALSE, 2);
+  gtk_box_pack_start (GTK_BOX (gui->main_vbox), toolbar, FALSE, FALSE, 2);
 
   img = fd_toolbar_icon_new ("add.png");
   gui->but_add = gtk_tool_button_new (img, _ ("Add"));
@@ -367,7 +367,7 @@ toolbar_new (gui_t *gui)
   gtk_widget_set_tooltip_text (GTK_WIDGET (gui->but_del),
                                _ ("Delete the selected files"));
   g_signal_connect (G_OBJECT (gui->but_del), "clicked",
-                    G_CALLBACK (gui_delsel_cb), gui);
+                    G_CALLBACK (gui_delete_seleted_cb), gui);
   gtk_toolbar_insert (GTK_TOOLBAR (toolbar), gui->but_del, -1);
 
   img = fd_toolbar_icon_new ("pref.png");
@@ -431,27 +431,27 @@ static void gui_process_log (gui_t *gui, gchar *log)
   GtkTreePath *path;
   gboolean is_end;
 
-  GtkAdjustment *vadjustment = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(gui->logtree));
+  GtkAdjustment *vadjustment = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(gui->log_tree));
   gdouble value = gtk_adjustment_get_value(vadjustment);
   gdouble upper = gtk_adjustment_get_upper(vadjustment);
   gdouble page_size = gtk_adjustment_get_page_size(vadjustment);
   is_end = value + page_size + 1.0 >= upper;
 
-  gtk_list_store_append (gui->logliststore, itr);
-  gtk_list_store_set (gui->logliststore, itr, 0, log, -1);
+  gtk_list_store_append (gui->log_store, itr);
+  gtk_list_store_set (gui->log_store, itr, 0, log, -1);
 
-  path = gtk_tree_model_get_path (GTK_TREE_MODEL (gui->logliststore), itr);
+  path = gtk_tree_model_get_path (GTK_TREE_MODEL (gui->log_store), itr);
   if (is_end) {
-    gtk_tree_view_scroll_to_cell (GTK_TREE_VIEW (gui->logtree), path, NULL,
+    gtk_tree_view_scroll_to_cell (GTK_TREE_VIEW (gui->log_tree), path, NULL,
                                   FALSE, 0.0, 0.0);
   }
   gtk_tree_path_free (path);
 
-  if (gtk_tree_model_iter_n_children (GTK_TREE_MODEL (gui->logliststore), NULL)
+  if (gtk_tree_model_iter_n_children (GTK_TREE_MODEL (gui->log_store), NULL)
       >= FDUPVES_MAXLOG)
     {
-      gtk_tree_model_get_iter_first (GTK_TREE_MODEL (gui->logliststore), itr);
-      gtk_list_store_remove (gui->logliststore, itr);
+      gtk_tree_model_get_iter_first (GTK_TREE_MODEL (gui->log_store), itr);
+      gtk_list_store_remove (gui->log_store, itr);
     }
 }
 
@@ -497,7 +497,7 @@ mainframe_new (gui_t *gui)
   GtkWidget *hpaned, *vpaned, *vbox, *win;
 
   vpaned = gtk_paned_new (GTK_ORIENTATION_VERTICAL);
-  gtk_box_pack_start (GTK_BOX (gui->mainvbox), vpaned, TRUE, TRUE, 2);
+  gtk_box_pack_start (GTK_BOX (gui->main_vbox), vpaned, TRUE, TRUE, 2);
 
   hpaned = gtk_paned_new (GTK_ORIENTATION_HORIZONTAL);
   gtk_paned_add1 (GTK_PANED (vpaned), hpaned);
@@ -531,8 +531,8 @@ dir_list_new (gui_t *gui)
                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
   gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (win),
                                        GTK_SHADOW_IN);
-  gui->dirliststore = gtk_list_store_new (1, G_TYPE_STRING);
-  dirview = gtk_tree_view_new_with_model (GTK_TREE_MODEL (gui->dirliststore));
+  gui->dir_store = gtk_list_store_new (1, G_TYPE_STRING);
+  dirview = gtk_tree_view_new_with_model (GTK_TREE_MODEL (gui->dir_store));
   gtk_container_add (GTK_CONTAINER (win), dirview);
   gtk_widget_set_size_request (dirview, 300, 200);
 
@@ -657,9 +657,9 @@ res_tree_new (gui_t *gui)
   gtk_box_pack_start (GTK_BOX (hbox), entry, TRUE, TRUE, 2);
   gtk_entry_set_text (GTK_ENTRY (entry), _ ("filename filter condition"));
   g_signal_connect (G_OBJECT (entry), "changed",
-                    G_CALLBACK (restree_filter_changed), gui);
+                    G_CALLBACK (result_filter_changed), gui);
   g_signal_connect (G_OBJECT (entry), "focus-in-event",
-                    G_CALLBACK (restree_filter_focusin), gui);
+                    G_CALLBACK (result_filter_focusin), gui);
 
   combo = gtk_combo_box_text_new ();
   gtk_box_pack_start (GTK_BOX (hbox), combo, FALSE, FALSE, 2);
@@ -681,7 +681,7 @@ res_tree_new (gui_t *gui)
                                   _ ("select others"));
   gtk_combo_box_set_active (GTK_COMBO_BOX (combo), 0);
   g_signal_connect (G_OBJECT (combo), "changed",
-                    G_CALLBACK (restree_selcombo_changed), gui);
+                    G_CALLBACK (result_selcombo_changed), gui);
 
   /* result tree */
   scrwin = gtk_scrolled_window_new (NULL, NULL);
@@ -690,53 +690,53 @@ res_tree_new (gui_t *gui)
                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
   gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scrwin),
                                        GTK_SHADOW_IN);
-  gui->restreestore
+  gui->result_store
       = gtk_tree_store_new (6, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
                             G_TYPE_STRING, G_TYPE_STRING, G_TYPE_POINTER);
-  gui->restree
-      = gtk_tree_view_new_with_model (GTK_TREE_MODEL (gui->restreestore));
-  gtk_container_add (GTK_CONTAINER (scrwin), gui->restree);
+  gui->result_tree
+      = gtk_tree_view_new_with_model (GTK_TREE_MODEL (gui->result_store));
+  gtk_container_add (GTK_CONTAINER (scrwin), gui->result_tree);
 
   /* path */
   renderer = gtk_cell_renderer_text_new ();
   column = gtk_tree_view_column_new_with_attributes (_ ("File Path"), renderer,
                                                      "text", 0, NULL);
   gtk_tree_view_column_set_resizable (column, TRUE);
-  gtk_tree_view_append_column (GTK_TREE_VIEW (gui->restree), column);
+  gtk_tree_view_append_column (GTK_TREE_VIEW (gui->result_tree), column);
   /* image size */
   renderer = gtk_cell_renderer_text_new ();
   column = gtk_tree_view_column_new_with_attributes (
       _ ("Image Size"), renderer, "text", 1, NULL);
   gtk_tree_view_column_set_resizable (column, TRUE);
-  gtk_tree_view_append_column (GTK_TREE_VIEW (gui->restree), column);
+  gtk_tree_view_append_column (GTK_TREE_VIEW (gui->result_tree), column);
   /* file size */
   renderer = gtk_cell_renderer_text_new ();
   column = gtk_tree_view_column_new_with_attributes (_ ("File Size"), renderer,
                                                      "text", 2, NULL);
   gtk_tree_view_column_set_resizable (column, TRUE);
-  gtk_tree_view_append_column (GTK_TREE_VIEW (gui->restree), column);
+  gtk_tree_view_append_column (GTK_TREE_VIEW (gui->result_tree), column);
   /* video length */
   renderer = gtk_cell_renderer_text_new ();
   column = gtk_tree_view_column_new_with_attributes (
       _ ("Video Length"), renderer, "text", 3, NULL);
   gtk_tree_view_column_set_resizable (column, TRUE);
-  gtk_tree_view_append_column (GTK_TREE_VIEW (gui->restree), column);
+  gtk_tree_view_append_column (GTK_TREE_VIEW (gui->result_tree), column);
   /* format */
   renderer = gtk_cell_renderer_text_new ();
   column = gtk_tree_view_column_new_with_attributes (_ ("Format"), renderer,
                                                      "text", 4, NULL);
   gtk_tree_view_column_set_resizable (column, TRUE);
-  gtk_tree_view_append_column (GTK_TREE_VIEW (gui->restree), column);
+  gtk_tree_view_append_column (GTK_TREE_VIEW (gui->result_tree), column);
 
-  gtk_widget_add_events (GTK_WIDGET (gui->restree), GDK_BUTTON_PRESS_MASK);
-  g_signal_connect (G_OBJECT (gui->restree), "button-press-event",
-                    G_CALLBACK (restree_onbutpress), gui);
-  g_signal_connect (G_OBJECT (gui->restree), "row-activated",
-                    G_CALLBACK (restree_onactivated), gui);
-  gui->resselect = gtk_tree_view_get_selection (GTK_TREE_VIEW (gui->restree));
-  gtk_tree_selection_set_mode (gui->resselect, GTK_SELECTION_MULTIPLE);
-  g_signal_connect (G_OBJECT (gui->resselect), "changed",
-                    G_CALLBACK (restreesel_onchanged), gui);
+  gtk_widget_add_events (GTK_WIDGET (gui->result_tree), GDK_BUTTON_PRESS_MASK);
+  g_signal_connect (G_OBJECT (gui->result_tree), "button-press-event",
+                    G_CALLBACK (result_onbutpress), gui);
+  g_signal_connect (G_OBJECT (gui->result_tree), "row-activated",
+                    G_CALLBACK (result_onactivated), gui);
+  gui->result_select = gtk_tree_view_get_selection (GTK_TREE_VIEW (gui->result_tree));
+  gtk_tree_selection_set_mode (gui->result_select, GTK_SELECTION_MULTIPLE);
+  g_signal_connect (G_OBJECT (gui->result_select), "changed",
+                    G_CALLBACK (resultsel_onchanged), gui);
 
   return win;
 }
@@ -753,16 +753,16 @@ log_view_new (gui_t *gui)
                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
   gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (win),
                                        GTK_SHADOW_IN);
-  gui->logliststore = gtk_list_store_new (1, G_TYPE_STRING);
-  gui->logtree
-      = gtk_tree_view_new_with_model (GTK_TREE_MODEL (gui->logliststore));
-  gtk_container_add (GTK_CONTAINER (win), gui->logtree);
+  gui->log_store = gtk_list_store_new (1, G_TYPE_STRING);
+  gui->log_tree
+      = gtk_tree_view_new_with_model (GTK_TREE_MODEL (gui->log_store));
+  gtk_container_add (GTK_CONTAINER (win), gui->log_tree);
 
   renderer = gtk_cell_renderer_text_new ();
   column = gtk_tree_view_column_new_with_attributes (_ ("Message"), renderer,
                                                      "text", 0, NULL);
   gtk_tree_view_column_set_resizable (column, TRUE);
-  gtk_tree_view_append_column (GTK_TREE_VIEW (gui->logtree), column);
+  gtk_tree_view_append_column (GTK_TREE_VIEW (gui->log_tree), column);
 
   g_log_set_handler (NULL, G_LOG_LEVEL_MASK, gui_log, gui);
 
@@ -773,7 +773,7 @@ static void
 progressbar_new (gui_t *gui)
 {
   gui->progress = gtk_progress_bar_new ();
-  gtk_box_pack_end (GTK_BOX (gui->mainvbox), gui->progress, FALSE, FALSE, 2);
+  gtk_box_pack_end (GTK_BOX (gui->main_vbox), gui->progress, FALSE, FALSE, 2);
 }
 
 static void
@@ -781,8 +781,8 @@ gui_add_dir (gui_t *gui, const char *path)
 {
   GtkTreeIter itr[1];
 
-  gtk_list_store_append (gui->dirliststore, itr);
-  gtk_list_store_set (gui->dirliststore, itr, 0, path, -1);
+  gtk_list_store_append (gui->dir_store, itr);
+  gtk_list_store_set (gui->dir_store, itr, 0, path, -1);
 }
 
 static void
@@ -834,7 +834,7 @@ gui_save_directories (gui_t *gui)
       g_ini->directory_count = 0;
     }
 
-  count = gtk_tree_model_iter_n_children (GTK_TREE_MODEL (gui->dirliststore),
+  count = gtk_tree_model_iter_n_children (GTK_TREE_MODEL (gui->dir_store),
                                           NULL);
   if (count <= 0)
     {
@@ -846,10 +846,10 @@ gui_save_directories (gui_t *gui)
 
   for (i = 0; i < count; ++i)
     {
-      if (gtk_tree_model_iter_nth_child (GTK_TREE_MODEL (gui->dirliststore),
+      if (gtk_tree_model_iter_nth_child (GTK_TREE_MODEL (gui->dir_store),
                                          &itr, NULL, i))
         {
-          gtk_tree_model_get (GTK_TREE_MODEL (gui->dirliststore), &itr, 0,
+          gtk_tree_model_get (GTK_TREE_MODEL (gui->dir_store), &itr, 0,
                               &path, -1);
           g_ini->directories[i] = path;
         }
@@ -879,7 +879,7 @@ gui_find_thread (gui_t *gui)
   gtk_progress_bar_set_text (GTK_PROGRESS_BAR (gui->progress), "");
   gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (gui->progress), 0);
 
-  gtk_tree_store_clear (gui->restreestore);
+  gtk_tree_store_clear (gui->result_store);
   if (gui->same_list)
     {
       same_list_free (gui->same_list);
@@ -891,7 +891,7 @@ gui_find_thread (gui_t *gui)
   gui->audios = g_ptr_array_new_with_free_func (g_free);
   gui->ebooks = g_ptr_array_new_with_free_func (g_free);
 
-  gtk_tree_model_foreach (GTK_TREE_MODEL (gui->dirliststore),
+  gtk_tree_model_foreach (GTK_TREE_MODEL (gui->dir_store),
                           (GtkTreeModelForeachFunc)dir_find_item, gui);
 
   fimage = 0;
@@ -957,7 +957,7 @@ gui_find_thread (gui_t *gui)
   g_ptr_array_free (gui->audios, TRUE);
   g_ptr_array_free (gui->ebooks, TRUE);
 
-  gtk_tree_view_expand_all (GTK_TREE_VIEW (gui->restree));
+  gtk_tree_view_expand_all (GTK_TREE_VIEW (gui->result_tree));
 
   gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (gui->progress), 0);
   gtk_progress_bar_set_text (GTK_PROGRESS_BAR (gui->progress), "");
@@ -1349,21 +1349,21 @@ dirlist_onactivated (GtkTreeView *tree, GtkTreePath *path,
 {
   GtkTreeIter itr[1];
 
-  if (gtk_tree_model_get_iter (GTK_TREE_MODEL (gui->dirliststore), itr, path))
+  if (gtk_tree_model_get_iter (GTK_TREE_MODEL (gui->dir_store), itr, path))
     {
-      gtk_list_store_remove (gui->dirliststore, itr);
+      gtk_list_store_remove (gui->dir_store, itr);
     }
 }
 
 static void
-restree_onactivated (GtkTreeView *tree, GtkTreePath *path,
+result_onactivated (GtkTreeView *tree, GtkTreePath *path,
                      GtkTreeViewColumn *column, gui_t *gui)
 {
-  restree_open (NULL, gui);
+  result_open (NULL, gui);
 }
 
 static gboolean
-restree_onbutpress (GtkWidget *wid, GdkEventButton *event, gui_t *gui)
+result_onbutpress (GtkWidget *wid, GdkEventButton *event, gui_t *gui)
 {
   GtkWidget *menu, *item;
   int selcnt;
@@ -1373,7 +1373,7 @@ restree_onbutpress (GtkWidget *wid, GdkEventButton *event, gui_t *gui)
       return FALSE;
     }
 
-  selcnt = gtk_tree_selection_count_selected_rows (gui->resselect);
+  selcnt = gtk_tree_selection_count_selected_rows (gui->result_select);
   if (selcnt == 0)
     {
       return FALSE;
@@ -1383,23 +1383,23 @@ restree_onbutpress (GtkWidget *wid, GdkEventButton *event, gui_t *gui)
   switch (selcnt)
     {
     case 1:
-      item = restree_open_menuitem (gui);
+      item = result_open_menuitem (gui);
       gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
-      item = restree_opendir_menuitem (gui);
+      item = result_opendir_menuitem (gui);
       gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
-      item = restree_delete_menuitem (gui);
+      item = result_delete_menuitem (gui);
       gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
       break;
 
     case 2:
-      item = restree_diff_menuitem (gui);
+      item = result_diff_menuitem (gui);
       gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
-      item = restree_delete_menuitem (gui);
+      item = result_delete_menuitem (gui);
       gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
       break;
 
     default: /* >= 3 */
-      item = restree_delete_menuitem (gui);
+      item = result_delete_menuitem (gui);
       gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
       break;
     }
@@ -1413,65 +1413,70 @@ restree_onbutpress (GtkWidget *wid, GdkEventButton *event, gui_t *gui)
 }
 
 static GtkWidget *
-restree_open_menuitem (gui_t *gui)
+result_open_menuitem (gui_t *gui)
 {
   GtkWidget *item;
 
   item = gtk_menu_item_new_with_label (_ ("open"));
-  g_signal_connect (G_OBJECT (item), "activate", G_CALLBACK (restree_open),
+  g_signal_connect (G_OBJECT (item), "activate", G_CALLBACK (result_open),
                     gui);
 
   return item;
 }
 
 static GtkWidget *
-restree_opendir_menuitem (gui_t *gui)
+result_opendir_menuitem (gui_t *gui)
 {
   GtkWidget *item;
 
   item = gtk_menu_item_new_with_label (_ ("open dir"));
-  g_signal_connect (G_OBJECT (item), "activate", G_CALLBACK (restree_opendir),
+  g_signal_connect (G_OBJECT (item), "activate", G_CALLBACK (result_opendir),
                     gui);
 
   return item;
 }
 
 static GtkWidget *
-restree_delete_menuitem (gui_t *gui)
+result_delete_menuitem (gui_t *gui)
 {
   GtkWidget *item;
 
   item = gtk_menu_item_new_with_label (_ ("delete"));
-  g_signal_connect (G_OBJECT (item), "activate", G_CALLBACK (restree_delete),
+  g_signal_connect (G_OBJECT (item), "activate", G_CALLBACK (result_delete),
                     gui);
 
   return item;
 }
 
 static GtkWidget *
-restree_diff_menuitem (gui_t *gui)
+result_diff_menuitem (gui_t *gui)
 {
   GtkWidget *item;
 
   item = gtk_menu_item_new_with_label (_ ("diff"));
-  g_signal_connect (G_OBJECT (item), "activate", G_CALLBACK (restree_diff),
+  g_signal_connect (G_OBJECT (item), "activate", G_CALLBACK (result_diff),
                     gui);
 
   return item;
 }
 
 static void
-restreesel_onchanged (GtkTreeSelection *sel, gui_t *gui)
+resultsel_onchanged (GtkTreeSelection *sel, gui_t *gui)
 {
   GList *list, *cur;
   gsize i, cnt;
-  GtkTreeIter itr[1];
+  gchar *path;
+  GtkTreeIter *itr;
 
-  if (gui->resselfiles)
+  if (gui->result_file_nodes)
     {
-      g_free (gui->resselfiles);
-      gui->resselfiles = NULL;
+      g_free (gui->result_file_nodes);
+      gui->result_file_nodes = NULL;
     }
+  if (gui->result_select_iters) {
+    g_free (gui->result_select_iters);
+    gui->result_select_iters = NULL;
+  }
 
   list = gtk_tree_selection_get_selected_rows (sel, NULL);
   cnt = g_list_length (list);
@@ -1480,27 +1485,29 @@ restreesel_onchanged (GtkTreeSelection *sel, gui_t *gui)
       return;
     }
 
-  gui->resselfiles = g_new0 (file_node *, cnt + 1);
+  gui->result_file_nodes = g_new0 (file_node *, cnt);
+  gui->result_select_iters = g_new0 (GtkTreeIter, cnt);
 
   for (i = 0, cur = list; cur; ++i, cur = g_list_next (cur))
     {
-      gtk_tree_model_get_iter (GTK_TREE_MODEL (gui->restreestore), itr,
+      itr = gui->result_select_iters + i;
+      gtk_tree_model_get_iter (GTK_TREE_MODEL (gui->result_store), itr,
                                cur->data);
-      gtk_tree_model_get (GTK_TREE_MODEL (gui->restreestore), itr, 5,
-                          gui->resselfiles + i, -1);
+      gtk_tree_model_get (GTK_TREE_MODEL (gui->result_store), itr, 5,
+                          gui->result_file_nodes + i, -1);
       gtk_tree_path_free (cur->data);
     }
   g_list_free (list);
 }
 
 static void
-restree_open (GtkMenuItem *item, gui_t *gui)
+result_open (GtkMenuItem *item, gui_t *gui)
 {
 #ifndef WIN32
   gchar *uri;
   GError *err;
 
-  uri = g_filename_to_uri (gui->resselfiles[0]->path, NULL, NULL);
+  uri = g_filename_to_uri (gui->result_file_nodes[0]->path, NULL, NULL);
   err = NULL;
   gtk_show_uri_on_window (NULL, uri, GDK_CURRENT_TIME, &err);
   if (err)
@@ -1528,7 +1535,7 @@ restree_open (GtkMenuItem *item, gui_t *gui)
 }
 
 static void
-restree_opendir (GtkMenuItem *item, gui_t *gui)
+result_opendir (GtkMenuItem *item, gui_t *gui)
 {
   gchar *dir;
 #ifndef WIN32
@@ -1538,10 +1545,10 @@ restree_opendir (GtkMenuItem *item, gui_t *gui)
   gchar *dirname;
 #endif
 
-  dir = g_path_get_dirname (gui->resselfiles[0]->path);
+  dir = g_path_get_dirname (gui->result_file_nodes[0]->path);
   if (dir == NULL)
     {
-      g_warning ("get file: %s dirname failed", gui->resselfiles[0]->path);
+      g_warning ("get file: %s dirname failed", gui->result_file_nodes[0]->path);
       return;
     }
 
@@ -1584,7 +1591,10 @@ gui_filter_result (gui_t *gui, const gchar *filter)
   file_node *fn;
   gboolean match;
 
-  gtk_tree_store_clear (gui->restreestore);
+  GtkAdjustment *vadjustment = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(gui->result_tree));
+  gdouble value = gtk_adjustment_get_value(vadjustment);
+
+  gtk_tree_store_clear (gui->result_store);
 
   for (nodelist = gui->same_list; nodelist != NULL;
        nodelist = g_slist_next (nodelist))
@@ -1626,29 +1636,30 @@ gui_filter_result (gui_t *gui, const gchar *filter)
 
       if (match)
         {
-          gtk_tree_store_append (gui->restreestore, itr, NULL);
+          gtk_tree_store_append (gui->result_store, itr, NULL);
           fn = node->files->data;
-          file_node_to_tree_iter (fn, gui->restreestore, itr);
+          file_node_to_tree_iter (fn, gui->result_store, itr);
 
-          path = gtk_tree_model_get_path (GTK_TREE_MODEL (gui->restreestore),
+          path = gtk_tree_model_get_path (GTK_TREE_MODEL (gui->result_store),
                                           itr);
           node->treerowref = gtk_tree_row_reference_new (
-              GTK_TREE_MODEL (gui->restreestore), path);
+              GTK_TREE_MODEL (gui->result_store), path);
           gtk_tree_path_free (path);
 
           for (filelist = g_slist_next (node->files); filelist != NULL;
                filelist = g_slist_next (filelist))
             {
-              gtk_tree_store_append (gui->restreestore, itrc, itr);
+              gtk_tree_store_append (gui->result_store, itrc, itr);
               fn = filelist->data;
-              file_node_to_tree_iter (fn, gui->restreestore, itrc);
+              file_node_to_tree_iter (fn, gui->result_store, itrc);
             }
 
           node->show = TRUE;
         }
     }
 
-  gtk_tree_view_expand_all (GTK_TREE_VIEW (gui->restree));
+  gtk_tree_view_expand_all (GTK_TREE_VIEW (gui->result_tree));
+  gtk_adjustment_set_value(vadjustment, value);
 }
 
 #ifdef WIN32
@@ -1778,17 +1789,18 @@ gui_delete_dialog_ask (gui_t *gui, const gchar *filename, gint *pflags)
 }
 
 static void
-restree_delete (GtkMenuItem *item, gui_t *gui)
+result_delete (GtkMenuItem *item, gui_t *gui)
 {
-  gint i, res, ret, flags;
+  gint last, i, res, ret, flags;
 
   res = 0;
   flags = 0;
-  for (i = 0; gui->resselfiles[i]; ++i)
+  last = sizeof (gui->result_file_nodes) / sizeof (gui->result_file_nodes[0]);
+  for (i = last - 1; i >= 0 && gui->result_file_nodes[i]; --i)
     {
       if (res == 0)
         {
-          res = gui_delete_dialog_ask (gui, gui->resselfiles[i]->path, &flags);
+          res = gui_delete_dialog_ask (gui, gui->result_file_nodes[i]->path, &flags);
         }
 
       if (res == GTK_RESPONSE_YES)
@@ -1803,11 +1815,11 @@ restree_delete (GtkMenuItem *item, gui_t *gui)
               ret = win32_remove (gui, gui->resselfiles[i]->path, FALSE);
             }
 #else
-          ret = g_remove (gui->resselfiles[i]->path);
+          ret = g_remove (gui->result_file_nodes[i]->path);
 #endif
           if (ret == 0)
             {
-              file_node_free_full (gui->resselfiles[i]);
+              file_node_free_full (gui->result_file_nodes[i]);
             }
         }
 
@@ -2000,9 +2012,9 @@ diff_add_video (diff_dialog *dia, const file_node *afn, const file_node *bfn)
 }
 
 static void
-restree_diff (GtkMenuItem *item, gui_t *gui)
+result_diff (GtkMenuItem *item, gui_t *gui)
 {
-  diff_dialog_new (gui, gui->resselfiles[0], gui->resselfiles[1]);
+  diff_dialog_new (gui, gui->result_file_nodes[0], gui->result_file_nodes[1]);
 }
 
 static void
@@ -2215,10 +2227,10 @@ gui_append_same_slist (gui_t *gui, GSList *slist, const gchar *afile,
           if (node->show)
             {
               path = gtk_tree_row_reference_get_path (node->treerowref);
-              gtk_tree_model_get_iter (GTK_TREE_MODEL (gui->restreestore), itr,
+              gtk_tree_model_get_iter (GTK_TREE_MODEL (gui->result_store), itr,
                                        path);
-              gtk_tree_store_append (gui->restreestore, itrc, itr);
-              file_node_to_tree_iter (fn, gui->restreestore, itrc);
+              gtk_tree_store_append (gui->result_store, itrc, itr);
+              file_node_to_tree_iter (fn, gui->result_store, itrc);
               gtk_tree_path_free (path);
             }
 
@@ -2231,10 +2243,10 @@ gui_append_same_slist (gui_t *gui, GSList *slist, const gchar *afile,
           if (node->show)
             {
               path = gtk_tree_row_reference_get_path (node->treerowref);
-              gtk_tree_model_get_iter (GTK_TREE_MODEL (gui->restreestore), itr,
+              gtk_tree_model_get_iter (GTK_TREE_MODEL (gui->result_store), itr,
                                        path);
-              gtk_tree_store_append (gui->restreestore, itrc, itr);
-              file_node_to_tree_iter (fn, gui->restreestore, itrc);
+              gtk_tree_store_append (gui->result_store, itrc, itr);
+              file_node_to_tree_iter (fn, gui->result_store, itrc);
               gtk_tree_path_free (path);
             }
 
@@ -2249,14 +2261,14 @@ gui_append_same_slist (gui_t *gui, GSList *slist, const gchar *afile,
   fn = file_node_new (node, afile, filetype);
   fn2 = file_node_new (node, bfile, filetype);
 
-  gtk_tree_store_append (gui->restreestore, itr, NULL);
-  file_node_to_tree_iter (fn, gui->restreestore, itr);
-  path = gtk_tree_model_get_path (GTK_TREE_MODEL (gui->restreestore), itr);
+  gtk_tree_store_append (gui->result_store, itr, NULL);
+  file_node_to_tree_iter (fn, gui->result_store, itr);
+  path = gtk_tree_model_get_path (GTK_TREE_MODEL (gui->result_store), itr);
   node->treerowref
-      = gtk_tree_row_reference_new (GTK_TREE_MODEL (gui->restreestore), path);
+      = gtk_tree_row_reference_new (GTK_TREE_MODEL (gui->result_store), path);
   gtk_tree_path_free (path);
-  gtk_tree_store_append (gui->restreestore, itrc, itr);
-  file_node_to_tree_iter (fn2, gui->restreestore, itrc);
+  gtk_tree_store_append (gui->result_store, itrc, itr);
+  file_node_to_tree_iter (fn2, gui->result_store, itrc);
   node->show = TRUE;
 
   return g_slist_append (slist, node);
@@ -2283,21 +2295,21 @@ same_list_free (GSList *list)
 }
 
 static void
-restree_filter_changed (GtkEntry *entry, gui_t *gui)
+result_filter_changed (GtkEntry *entry, gui_t *gui)
 {
   gui_filter_result (gui, gtk_entry_get_text (entry));
 }
 
 static void
-restree_filter_focusin (GtkEntry *entry, gui_t *gui)
+result_filter_focusin (GtkEntry *entry, gui_t *gui)
 {
   gtk_entry_set_text (GTK_ENTRY (entry), "");
   g_signal_handlers_disconnect_by_func (
-      G_OBJECT (entry), G_CALLBACK (restree_filter_focusin), gui);
+      G_OBJECT (entry), G_CALLBACK (result_filter_focusin), gui);
 }
 
 static void
-restree_selcombo_changed (GtkComboBox *comtext, gui_t *gui)
+result_selcombo_changed (GtkComboBox *comtext, gui_t *gui)
 {
   gint id;
 
@@ -2308,25 +2320,25 @@ restree_selcombo_changed (GtkComboBox *comtext, gui_t *gui)
       break;
 
     case 1:
-      g_slist_foreach (gui->same_list, (GFunc)restree_sel_small_file, gui);
+      g_slist_foreach (gui->same_list, (GFunc)result_select_small_file, gui);
       break;
     case 2:
-      g_slist_foreach (gui->same_list, (GFunc)restree_sel_big_file, gui);
+      g_slist_foreach (gui->same_list, (GFunc)result_select_big_file, gui);
       break;
     case 3:
-      g_slist_foreach (gui->same_list, (GFunc)restree_sel_small_image, gui);
+      g_slist_foreach (gui->same_list, (GFunc)result_select_small_image, gui);
       break;
     case 4:
-      g_slist_foreach (gui->same_list, (GFunc)restree_sel_big_image, gui);
+      g_slist_foreach (gui->same_list, (GFunc)result_select_big_image, gui);
       break;
     case 5:
-      g_slist_foreach (gui->same_list, (GFunc)restree_sel_short_video, gui);
+      g_slist_foreach (gui->same_list, (GFunc)result_select_short_video, gui);
       break;
     case 6:
-      g_slist_foreach (gui->same_list, (GFunc)restree_sel_long_video, gui);
+      g_slist_foreach (gui->same_list, (GFunc)result_select_long_video, gui);
       break;
     case 7:
-      g_slist_foreach (gui->same_list, (GFunc)restree_sel_others, gui);
+      g_slist_foreach (gui->same_list, (GFunc)result_select_others, gui);
       break;
 
     default:
@@ -2335,11 +2347,11 @@ restree_selcombo_changed (GtkComboBox *comtext, gui_t *gui)
 }
 
 static void
-gui_delsel_cb (GtkWidget *but, gui_t *gui)
+gui_delete_seleted_cb (GtkWidget *but, gui_t *gui)
 {
-  if (gui->resselfiles && gui->resselfiles[0])
+  if (gui->result_file_nodes && gui->result_file_nodes[0])
     {
-      restree_delete (NULL, gui);
+      result_delete (NULL, gui);
     }
 }
 
@@ -2460,7 +2472,7 @@ file_node_to_tree_iter (file_node *fn, GtkTreeStore *store, GtkTreeIter *itr)
 }
 
 static void
-restree_select_rowref_id (gui_t *gui, GtkTreeRowReference *ref, gint id)
+result_select_rowref_id (gui_t *gui, GtkTreeRowReference *ref, gint id)
 {
   GtkTreePath *path;
 
@@ -2473,11 +2485,11 @@ restree_select_rowref_id (gui_t *gui, GtkTreeRowReference *ref, gint id)
           gtk_tree_path_next (path);
         }
     }
-  gtk_tree_selection_select_path (gui->resselect, path);
+  gtk_tree_selection_select_path (gui->result_select, path);
 }
 
 static void
-restree_unselect_rowref_id (gui_t *gui, GtkTreeRowReference *ref, gint id)
+result_unselect_rowref_id (gui_t *gui, GtkTreeRowReference *ref, gint id)
 {
   GtkTreePath *path;
 
@@ -2490,11 +2502,11 @@ restree_unselect_rowref_id (gui_t *gui, GtkTreeRowReference *ref, gint id)
           gtk_tree_path_next (path);
         }
     }
-  gtk_tree_selection_unselect_path (gui->resselect, path);
+  gtk_tree_selection_unselect_path (gui->result_select, path);
 }
 
 static void
-restree_sel_small_file (same_node *node, gui_t *gui)
+result_select_small_file (same_node *node, gui_t *gui)
 {
   GSList *slist;
   file_node *fn, *sfn;
@@ -2510,7 +2522,7 @@ restree_sel_small_file (same_node *node, gui_t *gui)
       fn = slist->data;
 
       fn->selected = FALSE;
-      restree_unselect_rowref_id (gui, node->treerowref,
+      result_unselect_rowref_id (gui, node->treerowref,
                                   g_slist_index (node->files, fn));
       if (fn->size < sfn->size)
         {
@@ -2519,12 +2531,12 @@ restree_sel_small_file (same_node *node, gui_t *gui)
     }
 
   sfn->selected = TRUE;
-  restree_select_rowref_id (gui, node->treerowref,
+  result_select_rowref_id (gui, node->treerowref,
                             g_slist_index (node->files, sfn));
 }
 
 static void
-restree_sel_big_file (same_node *node, gui_t *gui)
+result_select_big_file (same_node *node, gui_t *gui)
 {
   GSList *slist;
   file_node *fn, *sfn;
@@ -2540,7 +2552,7 @@ restree_sel_big_file (same_node *node, gui_t *gui)
       fn = slist->data;
 
       fn->selected = FALSE;
-      restree_unselect_rowref_id (gui, node->treerowref,
+      result_unselect_rowref_id (gui, node->treerowref,
                                   g_slist_index (node->files, fn));
       if (fn->size > sfn->size)
         {
@@ -2549,12 +2561,12 @@ restree_sel_big_file (same_node *node, gui_t *gui)
     }
 
   sfn->selected = TRUE;
-  restree_select_rowref_id (gui, node->treerowref,
+  result_select_rowref_id (gui, node->treerowref,
                             g_slist_index (node->files, sfn));
 }
 
 static void
-restree_sel_small_image (same_node *node, gui_t *gui)
+result_select_small_image (same_node *node, gui_t *gui)
 {
   GSList *slist;
   file_node *fn, *sfn;
@@ -2570,7 +2582,7 @@ restree_sel_small_image (same_node *node, gui_t *gui)
       fn = slist->data;
 
       fn->selected = FALSE;
-      restree_unselect_rowref_id (gui, node->treerowref,
+      result_unselect_rowref_id (gui, node->treerowref,
                                   g_slist_index (node->files, fn));
       if (fn->width * fn->height < sfn->width * sfn->height)
         {
@@ -2579,12 +2591,12 @@ restree_sel_small_image (same_node *node, gui_t *gui)
     }
 
   sfn->selected = TRUE;
-  restree_select_rowref_id (gui, node->treerowref,
+  result_select_rowref_id (gui, node->treerowref,
                             g_slist_index (node->files, sfn));
 }
 
 static void
-restree_sel_big_image (same_node *node, gui_t *gui)
+result_select_big_image (same_node *node, gui_t *gui)
 {
   GSList *slist;
   file_node *fn, *sfn;
@@ -2600,7 +2612,7 @@ restree_sel_big_image (same_node *node, gui_t *gui)
       fn = slist->data;
 
       fn->selected = FALSE;
-      restree_unselect_rowref_id (gui, node->treerowref,
+      result_unselect_rowref_id (gui, node->treerowref,
                                   g_slist_index (node->files, fn));
       if (fn->width * fn->height > sfn->width * sfn->height)
         {
@@ -2609,12 +2621,12 @@ restree_sel_big_image (same_node *node, gui_t *gui)
     }
 
   sfn->selected = TRUE;
-  restree_select_rowref_id (gui, node->treerowref,
+  result_select_rowref_id (gui, node->treerowref,
                             g_slist_index (node->files, sfn));
 }
 
 static void
-restree_sel_short_video (same_node *node, gui_t *gui)
+result_select_short_video (same_node *node, gui_t *gui)
 {
   GSList *slist;
   file_node *fn, *sfn;
@@ -2630,7 +2642,7 @@ restree_sel_short_video (same_node *node, gui_t *gui)
       fn = slist->data;
 
       fn->selected = FALSE;
-      restree_unselect_rowref_id (gui, node->treerowref,
+      result_unselect_rowref_id (gui, node->treerowref,
                                   g_slist_index (node->files, fn));
       if (fn->length < sfn->length)
         {
@@ -2639,12 +2651,12 @@ restree_sel_short_video (same_node *node, gui_t *gui)
     }
 
   sfn->selected = TRUE;
-  restree_select_rowref_id (gui, node->treerowref,
+  result_select_rowref_id (gui, node->treerowref,
                             g_slist_index (node->files, sfn));
 }
 
 static void
-restree_sel_long_video (same_node *node, gui_t *gui)
+result_select_long_video (same_node *node, gui_t *gui)
 {
   GSList *slist;
   file_node *fn, *sfn;
@@ -2660,7 +2672,7 @@ restree_sel_long_video (same_node *node, gui_t *gui)
       fn = slist->data;
 
       fn->selected = FALSE;
-      restree_unselect_rowref_id (gui, node->treerowref,
+      result_unselect_rowref_id (gui, node->treerowref,
                                   g_slist_index (node->files, fn));
       if (fn->length > sfn->length)
         {
@@ -2669,12 +2681,12 @@ restree_sel_long_video (same_node *node, gui_t *gui)
     }
 
   sfn->selected = TRUE;
-  restree_select_rowref_id (gui, node->treerowref,
+  result_select_rowref_id (gui, node->treerowref,
                             g_slist_index (node->files, sfn));
 }
 
 static void
-restree_sel_others (same_node *node, gui_t *gui)
+result_select_others (same_node *node, gui_t *gui)
 {
   GSList *slist;
   file_node *fn;
@@ -2691,13 +2703,13 @@ restree_sel_others (same_node *node, gui_t *gui)
       if (fn->selected)
         {
           fn->selected = FALSE;
-          restree_unselect_rowref_id (gui, node->treerowref,
+          result_unselect_rowref_id (gui, node->treerowref,
                                       g_slist_index (node->files, fn));
         }
       else
         {
           fn->selected = TRUE;
-          restree_select_rowref_id (gui, node->treerowref,
+          result_select_rowref_id (gui, node->treerowref,
                                     g_slist_index (node->files, fn));
         }
     }
