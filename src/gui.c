@@ -429,13 +429,22 @@ static void gui_process_log (gui_t *gui, gchar *log)
 {
   GtkTreeIter itr[1];
   GtkTreePath *path;
+  gboolean is_end;
+
+  GtkAdjustment *vadjustment = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(gui->logtree));
+  gdouble value = gtk_adjustment_get_value(vadjustment);
+  gdouble upper = gtk_adjustment_get_upper(vadjustment);
+  gdouble page_size = gtk_adjustment_get_page_size(vadjustment);
+  is_end = value + page_size + 1.0 >= upper;
 
   gtk_list_store_append (gui->logliststore, itr);
   gtk_list_store_set (gui->logliststore, itr, 0, log, -1);
 
   path = gtk_tree_model_get_path (GTK_TREE_MODEL (gui->logliststore), itr);
-  gtk_tree_view_scroll_to_cell (GTK_TREE_VIEW (gui->logtree), path, NULL,
-                                FALSE, 0.0, 0.0);
+  if (is_end) {
+    gtk_tree_view_scroll_to_cell (GTK_TREE_VIEW (gui->logtree), path, NULL,
+                                  FALSE, 0.0, 0.0);
+  }
   gtk_tree_path_free (path);
 
   if (gtk_tree_model_iter_n_children (GTK_TREE_MODEL (gui->logliststore), NULL)

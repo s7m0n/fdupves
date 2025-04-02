@@ -117,7 +117,7 @@ cache_exec(cache_t *cache, int (*cb)(void *, int, char **, char **), void *arg, 
 
     rc = sqlite3_exec(cache->db, text, cb, arg, &errMsg);
     if (rc != SQLITE_OK) {
-        g_warning("SQL error: %s in [%s]\n", errMsg, text);
+        g_warning("SQL error: %s in [%s]", errMsg, text);
         sqlite3_free(errMsg);
         return FALSE;
     }
