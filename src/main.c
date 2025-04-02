@@ -85,15 +85,12 @@ main (int argc, char *argv[])
   CoInitializeEx (NULL, COINIT_MULTITHREADED);
 #endif
 
-  gdk_threads_init ();
-
   gtk_init (&argc, &argv);
 
   gui_init (argc, argv);
 
   cache_open (g_ini->cache_file);
 
-  gdk_threads_enter ();
 #ifdef FDUPVES_ENABLE_PROFILER
   ProfilerStart ("fdupves.prof");
 #endif
@@ -101,7 +98,6 @@ main (int argc, char *argv[])
 #ifdef FDUPVES_ENABLE_PROFILER
   ProfilerStop ();
 #endif
-  gdk_threads_leave ();
 
   fdupves_cleanup ();
 

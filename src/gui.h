@@ -63,6 +63,10 @@ struct gui_s
   GtkTreeStore *restreestore;
   GtkTreeSelection *resselect;
   file_node **resselfiles;
+
+  GAsyncQueue *step_queue;
+  GAsyncQueue *log_queue;
+  guint queue_timer;
 };
 
 typedef struct gui_s gui_t;
