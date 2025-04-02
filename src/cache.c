@@ -53,9 +53,10 @@ struct cache_s {
 
 static gboolean cache_exec(cache_t *cache, int (*cb)(void *, int, char **, char **), void *arg, const char *fmt, ...);
 
-const char *init_text = "create table media(id INTEGER PRIMARY KEY AUTOINCREMENT, path text, size bigint, mtime bigint);"
-                        "create table hash(id INTEGER PRIMARY KEY AUTOINCREMENT, media_id integer, alg int, offset real, hash varchar(32));"
-                        "create unique index index_path on media (path);";
+const char *init_text =
+        "create table media(id INTEGER PRIMARY KEY AUTOINCREMENT, path text, size bigint, mtime bigint);"
+        "create table hash(id INTEGER PRIMARY KEY AUTOINCREMENT, media_id integer, alg int, offset real, hash varchar(32));"
+        "create unique index index_path on media (path);";
 
 static void
 cache_init(cache_t *cache) {
@@ -65,7 +66,7 @@ cache_init(cache_t *cache) {
 cache_t *
 cache_open(const gchar *file) {
     cache_t *cache;
-    gchar * dirname;
+    gchar *dirname;
     gboolean needInit;
 
     cache = g_malloc(sizeof(cache_t));

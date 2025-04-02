@@ -40,204 +40,175 @@
 #endif
 
 gchar *
-fd_realpath (const gchar *path)
-{
-  gchar *abpath;
-  gchar opath[PATH_MAX];
+fd_realpath(const gchar *path) {
+    gchar *abpath;
+    gchar opath[PATH_MAX];
 
-  if (g_path_is_absolute (path))
-    {
-      return g_strdup (path);
+    if (g_path_is_absolute(path)) {
+        return g_strdup(path);
     }
 
-  if (path[0] == '~')
-    {
-      const gchar *home = getenv ("HOME");
-      if (home == NULL)
-        {
-          home = g_get_home_dir ();
+    if (path[0] == '~') {
+        const gchar *home = getenv("HOME");
+        if (home == NULL) {
+            home = g_get_home_dir();
         }
-      if (home == NULL)
-        {
-          return NULL;
+        if (home == NULL) {
+            return NULL;
         }
-      abpath = g_build_filename (home, path + 1, NULL);
-    }
-  else
-    {
+        abpath = g_build_filename(home, path + 1, NULL);
+    } else {
 #ifdef WIN32
       getcwd (sizeof (opath), opath);
       strcat (opath, "\\");
       strcat (opath, path);
 #else
-      if (realpath (path, opath) == NULL)
-        {
-          return NULL;
+        if (realpath(path, opath) == NULL) {
+            return NULL;
         }
 #endif
-      abpath = g_strdup (opath);
+        abpath = g_strdup(opath);
     }
 
-  return abpath;
+    return abpath;
 }
 
 gchar *
-fd_install_path ()
-{
-  gchar *prgdir;
+fd_install_path() {
+    gchar *prgdir;
 
 #ifdef WIN32
   prgdir = g_win32_get_package_installation_directory_of_module (NULL);
 #else
-  prgdir = g_strdup (CMAKE_INSTALL_PREFIX);
+    prgdir = g_strdup(CMAKE_INSTALL_PREFIX);
 #endif
 
-  return prgdir;
+    return prgdir;
 }
 
 static int
-is_type (const char *path, gchar **suffix)
-{
-  int i;
-  const char *p, *s;
+is_type(const char *path, gchar **suffix) {
+    int i;
+    const char *p, *s;
 
-  p = strrchr (path, '.');
-  if (p == NULL)
-    {
-      return 0;
+    p = strrchr(path, '.');
+    if (p == NULL) {
+        return 0;
     }
 
-  p += 1;
-  for (i = 0; suffix[i]; ++i)
-    {
-      s = suffix[i];
-      if (g_ascii_strcasecmp (p, s) == 0)
-        {
-          return 1;
+    p += 1;
+    for (i = 0; suffix[i]; ++i) {
+        s = suffix[i];
+        if (g_ascii_strcasecmp(p, s) == 0) {
+            return 1;
         }
     }
 
-  return 0;
+    return 0;
 }
 
 int
-is_image (const gchar *path)
-{
-  return is_type (path, g_ini->image_suffix);
+is_image(const gchar *path) {
+    return is_type(path, g_ini->image_suffix);
 }
 
 int
-is_video (const gchar *path)
-{
-  return is_type (path, g_ini->video_suffix);
+is_video(const gchar *path) {
+    return is_type(path, g_ini->video_suffix);
 }
 
 int
-is_audio (const gchar *path)
-{
-  return is_type (path, g_ini->audio_suffix);
+is_audio(const gchar *path) {
+    return is_type(path, g_ini->audio_suffix);
 }
 
 int
-is_ebook (const gchar *path)
-{
-  return is_type (path, g_ini->ebook_suffix);
+is_ebook(const gchar *path) {
+    return is_type(path, g_ini->ebook_suffix);
 }
 
 xmlNodeSetPtr
-xmldoc_get_nodeset (xmlDocPtr doc, const char *xpath, const char *ns,
-                    const char *url)
-{
-  xmlXPathContextPtr xpathctx;
-  xmlXPathObjectPtr xpathobj;
-  xmlNodeSetPtr nodes;
+xmldoc_get_nodeset(xmlDocPtr doc, const char *xpath, const char *ns,
+                   const char *url) {
+    xmlXPathContextPtr xpathctx;
+    xmlXPathObjectPtr xpathobj;
+    xmlNodeSetPtr nodes;
 
-  xpathctx = xmlXPathNewContext (doc);
-  if (xpathctx == NULL)
-    {
-      g_warning ("unable to create new XPath context\n");
-      return NULL;
+    xpathctx = xmlXPathNewContext(doc);
+    if (xpathctx == NULL) {
+        g_warning("unable to create new XPath context\n");
+        return NULL;
     }
 
-  xmlXPathRegisterNs (xpathctx, BAD_CAST ns, BAD_CAST url);
+    xmlXPathRegisterNs(xpathctx, BAD_CAST ns, BAD_CAST url);
 
-  xpathobj = xmlXPathEvalExpression (BAD_CAST xpath, xpathctx);
-  xmlXPathFreeContext (xpathctx);
-  if (xpathobj == NULL)
-    {
-      g_warning ("unable to evaluate xpath expression \"%s\"\n", xpath);
-      return NULL;
+    xpathobj = xmlXPathEvalExpression(BAD_CAST xpath, xpathctx);
+    xmlXPathFreeContext(xpathctx);
+    if (xpathobj == NULL) {
+        g_warning("unable to evaluate xpath expression \"%s\"\n", xpath);
+        return NULL;
     }
 
-  if (xmlXPathNodeSetIsEmpty (xpathobj->nodesetval))
-    {
-      g_debug ("unable to get \"%s\"", xpath);
-      xmlXPathFreeObject (xpathobj);
-      return NULL;
+    if (xmlXPathNodeSetIsEmpty(xpathobj->nodesetval)) {
+        g_debug("unable to get \"%s\"", xpath);
+        xmlXPathFreeObject(xpathobj);
+        return NULL;
     }
 
-  nodes = xpathobj->nodesetval;
+    nodes = xpathobj->nodesetval;
 
-  xmlXPathFreeNodeSetList (xpathobj);
+    xmlXPathFreeNodeSetList(xpathobj);
 
-  return nodes;
+    return nodes;
 }
 
 xmlNodePtr
-xmldoc_get_node (xmlDocPtr doc, const char *xpath, const char *ns,
-                 const char *url)
-{
-  xmlNodePtr node = NULL;
-  xmlNodeSetPtr nodes = xmldoc_get_nodeset (doc, xpath, ns, url);
-  if (nodes != NULL)
-    {
-      node = nodes->nodeTab[0];
-      xmlXPathFreeNodeSet (nodes);
+xmldoc_get_node(xmlDocPtr doc, const char *xpath, const char *ns,
+                const char *url) {
+    xmlNodePtr node = NULL;
+    xmlNodeSetPtr nodes = xmldoc_get_nodeset(doc, xpath, ns, url);
+    if (nodes != NULL) {
+        node = nodes->nodeTab[0];
+        xmlXPathFreeNodeSet(nodes);
     }
 
-  return node;
+    return node;
 }
 
 const gchar *
-xml_get_value (const gchar *content, const gchar *xpath, gchar *out,
-               size_t outlen)
-{
-  xmlDocPtr doc;
-  xmlNodePtr node;
+xml_get_value(const gchar *content, const gchar *xpath, gchar *out,
+              size_t outlen) {
+    xmlDocPtr doc;
+    xmlNodePtr node;
 
-  doc = xmlReadMemory (content, strlen (content), NULL, NULL,
-                       XML_PARSE_NOBLANKS | XML_PARSE_NSCLEAN);
-  if (doc == NULL)
-    {
-      return NULL;
+    doc = xmlReadMemory(content, strlen(content), NULL, NULL,
+                        XML_PARSE_NOBLANKS | XML_PARSE_NSCLEAN);
+    if (doc == NULL) {
+        return NULL;
     }
 
-  node = xmldoc_get_node (doc, xpath, "pdfx", "http://ns.adobe.com/pdfx/1.3/");
-  if (node == NULL)
-    {
-      xmlFreeDoc (doc);
-      return NULL;
+    node = xmldoc_get_node(doc, xpath, "pdfx", "http://ns.adobe.com/pdfx/1.3/");
+    if (node == NULL) {
+        xmlFreeDoc(doc);
+        return NULL;
     }
 
-  g_snprintf (out, outlen, "%s", node->children->content);
-  xmlFreeDoc (doc);
+    g_snprintf(out, outlen, "%s", node->children->content);
+    xmlFreeDoc(doc);
 
-  return out;
+    return out;
 }
 
 char *
-xmlnode_attr_get (xmlNodePtr node, const char *attr)
-{
-  xmlAttrPtr prop;
+xmlnode_attr_get(xmlNodePtr node, const char *attr) {
+    xmlAttrPtr prop;
 
-  for (prop = node->properties; prop != NULL; prop = prop->next)
-    {
-      if (prop->type == XML_ATTRIBUTE_NODE
-          && strcmp ((char *)(prop->name), attr) == 0)
-        {
-          return g_strdup ((char *)prop->children->content);
+    for (prop = node->properties; prop != NULL; prop = prop->next) {
+        if (prop->type == XML_ATTRIBUTE_NODE
+            && strcmp((char *) (prop->name), attr) == 0) {
+            return g_strdup((char *)prop->children->content);
         }
     }
 
-  return NULL;
+    return NULL;
 }

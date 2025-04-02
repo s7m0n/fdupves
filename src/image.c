@@ -31,10 +31,9 @@
 #endif
 
 GdkPixbuf *
-fdupves_gdkpixbuf_load_file_at_size (const gchar *file, int w, int h,
-                                     GError **error)
-{
-  GdkPixbuf *buf;
+fdupves_gdkpixbuf_load_file_at_size(const gchar *file, int w, int h,
+                                    GError **error) {
+    GdkPixbuf *buf;
 #ifdef WIN32
   int width, height;
   GdkPixbufFormat *format;
@@ -49,9 +48,8 @@ fdupves_gdkpixbuf_load_file_at_size (const gchar *file, int w, int h,
     }
 #endif
 
-  if (error)
-    {
-      *error = NULL;
+    if (error) {
+        *error = NULL;
     }
 #ifdef WIN32
   if (width > 2000 && height > 2000)
@@ -61,8 +59,8 @@ fdupves_gdkpixbuf_load_file_at_size (const gchar *file, int w, int h,
   else
 #endif
     {
-      buf = gdk_pixbuf_new_from_file_at_scale (file, w, h, FALSE, error);
+        buf = gdk_pixbuf_new_from_file_at_scale(file, w, h, FALSE, error);
     }
 
-  return buf;
+    return buf;
 }

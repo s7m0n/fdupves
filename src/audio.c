@@ -44,19 +44,19 @@ audio_get_info(const char *file) {
 
     ret = avformat_open_input(&fmt_ctx, file, NULL, NULL);
     if (ret != 0) {
-        g_warning (_("could not open: %s"), file);
+        g_warning(_("could not open: %s"), file);
         return NULL;
     }
 
     if (avformat_find_stream_info(fmt_ctx, NULL) < 0) {
-        g_warning (_("could not find stream infomations: %s"), file);
+        g_warning(_("could not find stream infomations: %s"), file);
         avformat_close_input(&fmt_ctx);
         return NULL;
     }
 
     s = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0);
     if (s < 0) {
-        g_warning (_("could not find audio stream: %s"), file);
+        g_warning(_("could not find audio stream: %s"), file);
         avformat_close_input(&fmt_ctx);
         return NULL;
     }
@@ -120,18 +120,18 @@ audio_extract(const char *file,
     float total_length;
 
     if (avformat_open_input(&format_ctx, file, NULL, NULL) != 0) {
-        g_warning (_("could not open: %s"), file);
+        g_warning(_("could not open: %s"), file);
         goto end;
     }
 
     if (avformat_find_stream_info(format_ctx, NULL) < 0) {
-        g_warning (_("could not find stream infomations: %s"), file);
+        g_warning(_("could not find stream infomations: %s"), file);
         goto end;
     }
 
     s = av_find_best_stream(format_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0);
     if (s < 0) {
-        g_warning (_("could not find audio stream: %s"), file);
+        g_warning(_("could not find audio stream: %s"), file);
         goto end;
     }
 
@@ -139,25 +139,25 @@ audio_extract(const char *file,
 
     codec_ctx = avcodec_alloc_context3(NULL);
     if (codec_ctx == NULL) {
-        g_warning (_("Memory error: %s"), file);
+        g_warning(_("Memory error: %s"), file);
         goto end;
     }
 
     ret = avcodec_parameters_to_context(codec_ctx, stream->codecpar);
     if (ret < 0) {
-        g_warning (_("Memory error: %s"), file);
+        g_warning(_("Memory error: %s"), file);
         goto end;
     }
 
     codec_ctx->pkt_timebase = stream->time_base;
     codec = avcodec_find_decoder(codec_ctx->codec_id);
     if (codec == NULL) {
-        g_warning (_("Unsupported codec: %s"), file);
+        g_warning(_("Unsupported codec: %s"), file);
         goto end;
     }
 
     if (avcodec_open2(codec_ctx, codec, NULL) < 0) {
-        g_warning (_("Open codec error: %s"), file);
+        g_warning(_("Open codec error: %s"), file);
         goto end;
     }
 
@@ -165,7 +165,7 @@ audio_extract(const char *file,
     frame_s16 = av_frame_alloc();
     if (frame == NULL
         || frame_s16 == NULL) {
-        g_warning (_("alloc frame error: %s"), file);
+        g_warning(_("alloc frame error: %s"), file);
         goto end;
     }
 
@@ -185,11 +185,11 @@ audio_extract(const char *file,
 
     packet = av_packet_alloc();
     if (packet == NULL) {
-        g_warning (_("alloc packet error: %s"), file);
+        g_warning(_("alloc packet error: %s"), file);
         goto end;
     }
 
-    #if LIBSWRESAMPLE_VERSION_INT < AV_VERSION_INT(4, 0, 100)
+#if LIBSWRESAMPLE_VERSION_INT < AV_VERSION_INT(4, 0, 100)
     // 旧版本API（swr_alloc_set_opts）
     convert_ctx = swr_alloc_set_opts(
             NULL,
@@ -201,7 +201,7 @@ audio_extract(const char *file,
             codec_ctx->sample_rate,
             0,
             NULL);
-    #else
+#else
     // 新版本API（swr_alloc_set_opts2）
     AVChannelLayout out_ch_layout = AV_CHANNEL_LAYOUT_MONO;
     AVChannelLayout in_ch_layout;
@@ -226,23 +226,23 @@ audio_extract(const char *file,
             convert_ctx = NULL;
         }
     }
-    #endif
+#endif
 
     if (convert_ctx == NULL) {
-        g_warning (_("Could not allocate resampler context\n"));
+        g_warning(_("Could not allocate resampler context\n"));
         goto end;
     }
 
     /* initialize the resampling context */
     if ((ret = swr_init(convert_ctx)) < 0) {
-        g_warning (_("Could not initialize resampler context\n"));
+        g_warning(_("Could not initialize resampler context\n"));
         goto end;
     }
 
     *pLen = ar * length;
     *pBuffer = g_new(short, *pLen);
     if (*pBuffer == NULL) {
-        g_warning (_("Could not initialize resampler context\n"));
+        g_warning(_("Could not initialize resampler context\n"));
         goto end;
     }
 
@@ -266,14 +266,14 @@ audio_extract(const char *file,
         }
 
         if (ret != 0) {
-            g_warning (_("Cannot receive frame from context"));
+            g_warning(_("Cannot receive frame from context"));
             bytes = -1;
             goto end;
         }
 
         want_samples = av_rescale_rnd
-                (swr_get_delay(convert_ctx, codec_ctx->sample_rate)
-                 + frame->nb_samples, ar, codec_ctx->sample_rate, AV_ROUND_UP);
+        (swr_get_delay(convert_ctx, codec_ctx->sample_rate)
+         + frame->nb_samples, ar, codec_ctx->sample_rate, AV_ROUND_UP);
         if (got_samples + want_samples > *pLen) {
             want_samples = *pLen - got_samples;
         }
@@ -283,7 +283,7 @@ audio_extract(const char *file,
                                        1, want_samples,
                                        AV_SAMPLE_FMT_S16, 1);
         if (bytes < 0) {
-            g_warning (_("Could not fill resampler buffer\n"));
+            g_warning(_("Could not fill resampler buffer\n"));
             bytes = -1;
             goto end;
         }
@@ -291,7 +291,7 @@ audio_extract(const char *file,
         if ((ret = swr_convert(convert_ctx,
                                frame_s16->data, want_samples,
                                (const uint8_t **) frame->data, frame->nb_samples)) < 0) {
-            g_warning (_("Could not resample samples.\n"));
+            g_warning(_("Could not resample samples.\n"));
             bytes = -1;
             goto end;
         }
@@ -303,7 +303,7 @@ audio_extract(const char *file,
         }
     }
 
-    end:
+end:
     if (convert_ctx) {
         swr_free(&convert_ctx);
     }
@@ -382,7 +382,7 @@ int audio_extract_to_wav(const char *file,
     fp = fopen(out_wav, "wb");
     if (fp == NULL) {
         g_free(buf);
-        g_warning ("open %s for write error: %s", out_wav, strerror(errno));
+        g_warning("open %s for write error: %s", out_wav, strerror(errno));
         return -1;
     }
 
@@ -470,4 +470,3 @@ audio_fingerprint_similarity(hash_array_t *array1, hash_array_t *array2) {
 
     return dis;
 }
-

@@ -60,27 +60,27 @@
 #define FD_AUDIO 3
 #define FD_EBOOK 4
 
-gchar *fd_realpath (const gchar *);
+gchar *fd_realpath(const gchar *);
 
-gchar *fd_install_path ();
+gchar *fd_install_path();
 
-int is_image (const char *);
+int is_image(const char *);
 
-int is_video (const gchar *);
+int is_video(const gchar *);
 
-int is_audio (const gchar *);
+int is_audio(const gchar *);
 
-int is_ebook (const gchar *);
+int is_ebook(const gchar *);
 
-xmlNodeSetPtr xmldoc_get_nodeset (xmlDocPtr doc, const char *xpath,
-                                  const char *ns, const char *url);
+xmlNodeSetPtr xmldoc_get_nodeset(xmlDocPtr doc, const char *xpath,
+                                 const char *ns, const char *url);
 
-xmlNodePtr xmldoc_get_node (xmlDocPtr doc, const char *xpath, const char *ns,
-                            const char *url);
+xmlNodePtr xmldoc_get_node(xmlDocPtr doc, const char *xpath, const char *ns,
+                           const char *url);
 
-const gchar *xml_get_value (const gchar *content, const gchar *xpath,
-                            gchar *out, size_t outlen);
+const gchar *xml_get_value(const gchar *content, const gchar *xpath,
+                           gchar *out, size_t outlen);
 
-char *xmlnode_attr_get (xmlNodePtr node, const char *attr);
+char *xmlnode_attr_get(xmlNodePtr node, const char *attr);
 
 #endif
