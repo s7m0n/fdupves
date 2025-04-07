@@ -25,79 +25,99 @@
  */
 
 #include "ebook.h"
+#include "cache.h"
+
 #include <string.h>
 
 #define FDUPVES_EBOOK_HASH_MAX (64)
 
-extern int pdf_hash(const char *file, ebook_hash_t *ehash);
+extern int pdf_hash (const char *file, ebook_hash_t *ehash);
 
-extern int epub_hash(const char *file, ebook_hash_t *ehash);
+extern int epub_hash (const char *file, ebook_hash_t *ehash);
 
-extern int mobi_hash(const char *file, ebook_hash_t *ehash);
+extern int mobi_hash (const char *file, ebook_hash_t *ehash);
 
-typedef enum {
-    FDUPVES_EBOOK_PDF = 0,
-    FDUPVES_EBOOK_EPUB,
-    FDUPVES_EBOOK_MOBI,
-    FDUPVES_EBOOK_UNKOWN
+typedef enum
+{
+  FDUPVES_EBOOK_PDF = 0,
+  FDUPVES_EBOOK_EPUB,
+  FDUPVES_EBOOK_MOBI,
+  FDUPVES_EBOOK_UNKOWN
 } fdupves_ebook_type;
 
-struct ebook_impl {
-    fdupves_ebook_type type;
-    const char *type_prefix;
+struct ebook_impl
+{
+  fdupves_ebook_type type;
+  const char *type_prefix;
 
-    int (*func)(const char *, ebook_hash_t *);
+  int (*func) (const char *, ebook_hash_t *);
 } ebook_impls[FDUPVES_EBOOK_UNKOWN] = {
-    {
-        FDUPVES_EBOOK_PDF,
-        "pdf",
-        pdf_hash,
-    },
-    {
-        FDUPVES_EBOOK_EPUB,
-        "epub",
-        epub_hash,
-    },
-    {
-        FDUPVES_EBOOK_MOBI,
-        "mobi",
-        mobi_hash,
-    },
+  {
+      FDUPVES_EBOOK_PDF,
+      "pdf",
+      pdf_hash,
+  },
+  {
+      FDUPVES_EBOOK_EPUB,
+      "epub",
+      epub_hash,
+  },
+  {
+      FDUPVES_EBOOK_MOBI,
+      "mobi",
+      mobi_hash,
+  },
 };
 
 static struct ebook_impl *
-ebook_find_impl(const char *file) {
-    const char *p;
-    int i;
+ebook_find_impl (const char *file)
+{
+  const char *p;
+  int i;
 
-    p = strrchr(file, '.');
+  p = strrchr (file, '.');
 
-    if (p) {
-        for (i = 0; i < sizeof ebook_impls / sizeof ebook_impls[0]; ++i) {
-            if (strcasecmp(p + 1, ebook_impls[i].type_prefix) == 0)
-                return ebook_impls + i;
+  if (p)
+    {
+      for (i = 0; i < sizeof ebook_impls / sizeof ebook_impls[0]; ++i)
+        {
+          if (strcasecmp (p + 1, ebook_impls[i].type_prefix) == 0)
+            return ebook_impls + i;
         }
     }
 
-    return NULL;
+  return NULL;
 }
 
 int
-ebook_file_hash(const char *file, ebook_hash_t *ehash) {
-    struct ebook_impl const *impl;
+ebook_file_hash (const char *file, ebook_hash_t *ehash)
+{
+  struct ebook_impl const *impl;
+  int ret;
 
-    impl = ebook_find_impl(file);
-    if (impl == NULL) {
-        return -1;
+  if (cache_get_ebook (g_cache, file, ehash))
+    return 0;
+
+  impl = ebook_find_impl (file);
+  if (impl == NULL)
+    {
+      return -1;
     }
 
-    return impl->func(file, ehash);
+  ret = impl->func (file, ehash);
+  if (ret == 0)
+    {
+      cache_set_ebook (g_cache, file, ehash);
+    }
+  return ret;
 }
 
 int
-ebook_hash_cmp(ebook_hash_t *ha, ebook_hash_t *hb) {
-    if (ha->cover_hash && hb->cover_hash) {
-        return hash_cmp(ha->cover_hash, hb->cover_hash);
+ebook_hash_cmp (ebook_hash_t *ha, ebook_hash_t *hb)
+{
+  if (ha->cover_hash && hb->cover_hash)
+    {
+      return hash_cmp (ha->cover_hash, hb->cover_hash);
     }
 
 #define _ebook_key_cmp(key)                                                   \
@@ -109,9 +129,9 @@ ebook_hash_cmp(ebook_hash_t *ha, ebook_hash_t *hb) {
     }                                                                         \
   while (0)
 
-    //_ebook_key_cmp (title);
-    //_ebook_key_cmp (isbn);
-    //_ebook_key_cmp (author);
+  //_ebook_key_cmp (title);
+  //_ebook_key_cmp (isbn);
+  //_ebook_key_cmp (author);
 
-    return FDUPVES_EBOOK_HASH_MAX;
+  return FDUPVES_EBOOK_HASH_MAX;
 }

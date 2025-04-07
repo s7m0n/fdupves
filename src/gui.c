@@ -825,9 +825,22 @@ gui_load_directories(gui_t *gui) {
     }
 }
 
+static guint
+gui_wait_same_count(gui_t *gui) {
+    // because the find_step struct using const char *area
+    while (g_async_queue_length(gui->step_queue) > 0) {
+        g_usleep(100 * 1000);
+    }
+
+    if (gui->same_list == NULL)
+        return 0;
+
+    return g_slist_length(gui->same_list);
+}
+
 static void
 gui_find_thread(gui_t *gui) {
-    int fimage, fvideo, faudio, febook;
+    guint fimage, fvideo, faudio, febook;
 
     /* disable the add/find tool time */
     gtk_widget_set_sensitive(GTK_WIDGET(gui->but_add), FALSE);
@@ -856,7 +869,7 @@ gui_find_thread(gui_t *gui) {
         g_message(_ ("find %d images to process"), gui->images->len);
 
         find_images(gui->images, (find_step_cb) gui_find_step_cb, gui);
-        fimage = g_slist_length(gui->same_list);
+        fimage = gui_wait_same_count(gui);
         g_message(_ ("find %d groups same images"), fimage);
     }
 
@@ -869,7 +882,7 @@ gui_find_thread(gui_t *gui) {
         } else {
             find_videos(gui->videos, (find_step_cb) gui_find_step_cb, gui);
         }
-        fvideo = g_slist_length(gui->same_list);
+        fvideo = gui_wait_same_count(gui);
         fvideo -= fimage;
         g_message(_ ("find %d groups same videos"), fvideo);
     }
@@ -879,7 +892,7 @@ gui_find_thread(gui_t *gui) {
         g_message(_ ("find %d audios to process"), gui->audios->len);
 
         find_audios(gui->audios, (find_step_cb) gui_find_step_cb, gui);
-        faudio = g_slist_length(gui->same_list);
+        faudio = gui_wait_same_count(gui);
         faudio -= fimage;
         faudio -= fvideo;
         g_message(_ ("find %d groups same audios"), faudio);
@@ -890,16 +903,11 @@ gui_find_thread(gui_t *gui) {
         g_message(_ ("find %d ebooks to process"), gui->ebooks->len);
 
         find_ebooks(gui->ebooks, (find_step_cb) gui_find_step_cb, gui);
-        febook = g_slist_length(gui->same_list);
+        febook = gui_wait_same_count(gui);
         febook -= fimage;
         febook -= fvideo;
         febook -= faudio;
-        g_message(_ ("find %d groups same audios"), febook);
-    }
-
-    // because the find_step struct using const char *area
-    while (g_async_queue_length(gui->step_queue) > 0) {
-        g_usleep(100 * 1000);
+        g_message(_ ("find %d groups same ebooks"), febook);
     }
 
     g_ptr_array_free(gui->images, TRUE);

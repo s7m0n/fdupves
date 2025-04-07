@@ -28,6 +28,7 @@
 #define _FDUPVES_CACHE_H_
 
 #include "hash.h"
+#include "ebook.h"
 
 #include <glib.h>
 
@@ -44,6 +45,10 @@ gboolean cache_set(cache_t *, const gchar *, float, int, hash_t);
 gboolean cache_gets(cache_t *, const gchar *, int alg, hash_array_t **);
 
 gboolean cache_sets(cache_t *, const gchar *, int alg, hash_array_t *);
+
+gboolean cache_set_ebook(cache_t *, const char *, ebook_hash_t *h);
+
+gboolean cache_get_ebook(cache_t *, const char *, ebook_hash_t *h);
 
 gboolean cache_remove(cache_t *, const gchar *);
 
