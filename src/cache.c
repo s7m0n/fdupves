@@ -200,11 +200,27 @@ cache_get_media_id (cache_t *cache, const gchar *file)
 {
   int media_id;
   gboolean ret;
+  const gchar *p;
+  gchar trans_file[PATH_MAX];
+  gsize trans_len;
+
+  for (trans_len = 0, p = file; *p && trans_len + 2 < sizeof (trans_file);
+       trans_len++, p++)
+    {
+      trans_file[trans_len] = *p;
+      if (*p == '\'')
+        {
+          trans_file[trans_len + 1] = *p;
+          trans_len++;
+        }
+    }
+  g_return_val_if_fail (trans_len + 2 < sizeof (trans_file), -1);
+  trans_file[trans_len] = '\0';
 
   media_id = -1;
 
   ret = cache_exec (cache, get_id_callback, &media_id,
-                    "select id from media where path='%s';", file);
+                    "select id from media where path='%s';", trans_file);
   g_return_val_if_fail (ret, -1);
 
   if (media_id == -1)
@@ -219,19 +235,19 @@ cache_get_media_id (cache_t *cache, const gchar *file)
 #if WIN32
       ret = cache_exec (
           cache, NULL, NULL,
-          "insert into media(path, size, mtime) values('%s', %ld, %ld);", file,
-          buf->st_size, buf->st_mtime);
+          "insert into media(path, size, mtime) values('%s', %ld, %ld);",
+          trans_file, buf->st_size, buf->st_mtime);
 #else
       ret = cache_exec (
           cache, NULL, NULL,
-          "insert into media(path, size, mtime) values('%s', %ld, %ld);", file,
-          buf->st_size, buf->st_mtim.tv_sec);
+          "insert into media(path, size, mtime) values('%s', %ld, %ld);",
+          trans_file, buf->st_size, buf->st_mtim.tv_sec);
 #endif
       g_return_val_if_fail (ret, -1);
     }
 
   ret = cache_exec (cache, get_id_callback, &media_id,
-                    "select id from media where path='%s';", file);
+                    "select id from media where path='%s';", trans_file);
   g_return_val_if_fail (ret, -1);
 
   return media_id;
@@ -322,19 +338,17 @@ gboolean
 cache_set_ebook (cache_t *cache, const char *file, ebook_hash_t *h)
 {
   int media_id;
-  gboolean ret;
 
   media_id = cache_get_media_id (cache, file);
   g_return_val_if_fail (media_id != -1, FALSE);
 
-  ret = cache_exec (
+  return cache_exec (
       cache, NULL, NULL,
       "insert into ebook(media_id, hash, title, author, producer, "
       "pubdate_year, pubdate_mon, pubdate_day, isbn) values(%d, "
       "%lld, '%s', '%s', '%s', %d, %d, %d, '%s')",
       media_id, h->cover_hash, h->title, h->author, h->producer,
       h->public_date.year, h->public_date.month, h->public_date.day, h->isbn);
-  g_return_val_if_fail (ret, FALSE);
 }
 
 struct ebook_result
@@ -351,37 +365,37 @@ get_ebook_callback (void *para, int n_column, char **column_value,
   ebook_hash_t *h = result->hash;
   result->got = 1;
 
-  if (column_value[1] != NULL)
-    {
-      h->cover_hash = strtoull (column_value[1], NULL, 10);
-    }
   if (column_value[2] != NULL)
     {
-      snprintf (h->title, sizeof (h->title), "%s", column_value[2]);
+      h->cover_hash = strtoull (column_value[2], NULL, 10);
     }
   if (column_value[3] != NULL)
     {
-      snprintf (h->author, sizeof (h->author), "%s", column_value[3]);
+      snprintf (h->title, sizeof (h->title), "%s", column_value[3]);
     }
   if (column_value[4] != NULL)
     {
-      snprintf (h->producer, sizeof (h->producer), "%s", column_value[4]);
+      snprintf (h->author, sizeof (h->author), "%s", column_value[4]);
     }
   if (column_value[5] != NULL)
     {
-      h->public_date.year = strtoull (column_value[5], NULL, 10);
+      snprintf (h->producer, sizeof (h->producer), "%s", column_value[5]);
     }
   if (column_value[6] != NULL)
     {
-      h->public_date.month = strtoull (column_value[6], NULL, 10);
+      h->public_date.year = strtol (column_value[6], NULL, 10);
     }
   if (column_value[7] != NULL)
     {
-      h->public_date.day = strtoull (column_value[7], NULL, 10);
+      h->public_date.month = strtol (column_value[7], NULL, 10);
     }
   if (column_value[8] != NULL)
     {
-      snprintf (h->isbn, sizeof (h->isbn), "%s", column_value[8]);
+      h->public_date.day = strtol (column_value[8], NULL, 10);
+    }
+  if (column_value[9] != NULL)
+    {
+      snprintf (h->isbn, sizeof (h->isbn), "%s", column_value[9]);
     }
   return 0;
 }
@@ -399,10 +413,9 @@ cache_get_ebook (cache_t *cache, const char *file, ebook_hash_t *h)
   result->got = 0;
   result->hash = h;
   ret = cache_exec (cache, get_ebook_callback, result,
-                        "select * from ebook where media_id=%d", media_id);
+                    "select * from ebook where media_id=%d", media_id);
   g_return_val_if_fail (ret, FALSE);
-  g_return_val_if_fail (result->got, FALSE);
-  return TRUE;
+  return result->got == 1;
 }
 
 gboolean

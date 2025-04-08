@@ -2,6 +2,8 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
 
 CMAKE_POLICY(SET CMP0087 NEW)
 
+ADD_COMPILE_OPTIONS("$<$<CXX_COMPILER_ID:MSVC>:/source-charset:utf-8>")
+
 SET(HEADERS
         util.h
         gui.h
