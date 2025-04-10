@@ -27,53 +27,51 @@
 #ifndef _FDUPVES_AUDIO_H_
 #define _FDUPVES_AUDIO_H_
 
-#include <stdio.h>
 #include "hash.h"
+#include <stdio.h>
 
-typedef struct {
-    /* filename */
-    char *name;
+typedef struct
+{
+  /* filename */
+  char *name;
 
-    /* dirname */
-    char *dir;
+  /* dirname */
+  char *dir;
 
-    /* Format */
-    const char *format;
+  /* Format */
+  const char *format;
 
-    /* Duration */
-    float length;
+  /* Duration */
+  float length;
 
-    /* Size */
-    int size[2];
+  /* Size */
+  int size[2];
 } audio_info;
 
 #ifndef AUDIO_PEAK_HASH_LEN
 #define AUDIO_PEAK_HASH_LEN 12
 #endif
 
-typedef struct {
-    char hash[AUDIO_PEAK_HASH_LEN];
-    int offset;
+typedef struct
+{
+  char hash[AUDIO_PEAK_HASH_LEN];
+  int offset;
 } audio_peak_hash;
 
-audio_info *audio_get_info(const char *file);
+audio_info *audio_get_info (const char *file);
 
-void audio_info_free(audio_info *info);
+void audio_info_free (audio_info *info);
 
-float audio_get_length(const char *file);
+float audio_get_length (const char *file);
 
-int audio_extract(const char *file,
-                  float offset, float length,
-                  int ar,
-                  short **pBuffer, int *buf_len);
+int audio_extract (const char *file, float offset, float length, int ar,
+                   short **pBuffer, int *buf_len);
 
-int audio_extract_to_wav(const char *file,
-                         float offset, float length,
-                         int ar,
-                         const char *out_wav);
+int audio_extract_to_wav (const char *file, float offset, float length, int ar,
+                          const char *out_wav);
 
-hash_array_t *audio_fingerprint(const char *file);
+hash_array_t *audio_fingerprint (const char *file);
 
-int audio_fingerprint_similarity(hash_array_t *array1, hash_array_t *array2);
+int audio_fingerprint_similarity (hash_array_t *array1, hash_array_t *array2);
 
 #endif

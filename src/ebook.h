@@ -32,23 +32,25 @@
 #define FDUPVES_AUTHOR_LEN 256
 #define FDUPVES_ISBN_LEN 128
 
-typedef struct {
-    hash_t cover_hash;
-    char title[FDUPVES_TITLE_LEN];
-    char author[FDUPVES_AUTHOR_LEN];
-    char producer[FDUPVES_AUTHOR_LEN];
+typedef struct
+{
+  hash_t cover_hash;
+  char title[FDUPVES_TITLE_LEN];
+  char author[FDUPVES_AUTHOR_LEN];
+  char producer[FDUPVES_AUTHOR_LEN];
 
-    struct {
-        unsigned short year;
-        unsigned char month;
-        unsigned char day;
-    } public_date;
+  struct
+  {
+    unsigned short year;
+    unsigned char month;
+    unsigned char day;
+  } public_date;
 
-    char isbn[FDUPVES_ISBN_LEN];
+  char isbn[FDUPVES_ISBN_LEN];
 } ebook_hash_t;
 
-int ebook_file_hash(const char *file, ebook_hash_t *ehash);
+int ebook_file_hash (const char *file, ebook_hash_t *ehash);
 
-int ebook_hash_cmp(ebook_hash_t *ha, ebook_hash_t *hb);
+int ebook_hash_cmp (ebook_hash_t *ha, ebook_hash_t *hb);
 
 #endif

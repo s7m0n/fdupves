@@ -27,6 +27,7 @@
 #include "ebook.h"
 
 int
-mobi_hash(const char *file, ebook_hash_t *ehash) {
-    return -1;
+mobi_hash (const char *file, ebook_hash_t *ehash)
+{
+  return -1;
 }

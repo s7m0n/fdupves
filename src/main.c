@@ -50,26 +50,31 @@
 #include <google/profiler.h>
 #endif
 
-static void fdupves_cleanup();
+static void fdupves_cleanup ();
 
 int
-main(int argc, char *argv[]) {
-    gchar *prgdir, *localedir;
+main (int argc, char *argv[])
+{
+  gchar *prgdir, *localedir;
 
-    prgdir = fd_install_path();
-    if (prgdir) {
-        localedir = g_build_filename(prgdir, FD_SYS_LOCALE_DIR, NULL);
-        g_free(prgdir);
-    } else {
-        localedir = g_strdup(FD_SYS_LOCALE_DIR);
+  prgdir = fd_install_path ();
+  if (prgdir)
+    {
+      localedir = g_build_filename (prgdir, FD_SYS_LOCALE_DIR, NULL);
+      g_free (prgdir);
+    }
+  else
+    {
+      localedir = g_strdup (FD_SYS_LOCALE_DIR);
     }
 
-    if (localedir) {
-        setlocale(LC_ALL, "");
-        bindtextdomain(PACKAGE, localedir);
-        bind_textdomain_codeset(PACKAGE, "UTF-8");
-        textdomain(PACKAGE);
-        g_free(localedir);
+  if (localedir)
+    {
+      setlocale (LC_ALL, "");
+      bindtextdomain (PACKAGE, localedir);
+      bind_textdomain_codeset (PACKAGE, "UTF-8");
+      textdomain (PACKAGE);
+      g_free (localedir);
     }
 
     /* av format init */
@@ -80,28 +85,30 @@ main(int argc, char *argv[]) {
   CoInitializeEx (NULL, COINIT_MULTITHREADED);
 #endif
 
-    gtk_init(&argc, &argv);
+  gtk_init (&argc, &argv);
 
-    gui_init(argc, argv);
+  gui_init (argc, argv);
 
-    cache_open(g_ini->cache_file);
+  cache_open (g_ini->cache_file);
 
 #ifdef FDUPVES_ENABLE_PROFILER
   ProfilerStart ("fdupves.prof");
 #endif
-    gtk_main();
+  gtk_main ();
 #ifdef FDUPVES_ENABLE_PROFILER
   ProfilerStop ();
 #endif
 
-    fdupves_cleanup();
+  fdupves_cleanup ();
 
-    return 0;
+  return 0;
 }
 
 static void
-fdupves_cleanup() {
-    if (g_cache) {
-        cache_close(g_cache);
+fdupves_cleanup ()
+{
+  if (g_cache)
+    {
+      cache_close (g_cache);
     }
 }
