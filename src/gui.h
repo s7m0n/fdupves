@@ -28,9 +28,20 @@
 #ifndef _FDUPVES_GUI_H_
 #define _FDUPVES_GUI_H_
 
+#include <glib.h>
 #include <gtk/gtk.h>
 
 typedef struct file_node_s file_node;
+
+enum find_state
+{
+  FDUPVES_FIND_INIT = 0,
+  FDUPVES_FIND_STARTED,
+  FDUPVES_FIND_SCAN_FILE,
+  FDUPVES_FIND_THREAD_START,
+  FDUPVES_FIND_THREAD_FINISHED,
+  FDUPVES_FIND_ERROR,
+};
 
 struct gui_s
 {
@@ -69,6 +80,8 @@ struct gui_s
   GAsyncQueue *step_queue;
   GAsyncQueue *log_queue;
   guint queue_timer;
+
+  gint state;
 };
 
 typedef struct gui_s gui_t;

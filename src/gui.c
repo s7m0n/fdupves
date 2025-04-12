@@ -171,7 +171,7 @@ static void gui_destroy_cb (GtkWidget *, GdkEvent *, gui_t *);
 
 static void gui_add_dir (gui_t *, const gchar *);
 
-static void gui_find_thread (gui_t *);
+static void gui_find_dispatch (gui_t *);
 
 static void gui_save_directories (gui_t *);
 
@@ -819,12 +819,16 @@ gui_add_cb (GtkWidget *wid, gui_t *gui)
 }
 
 static void
+gui_signal_dispatch (gui_t *gui, int state)
+{
+  g_atomic_int_set (&gui->state, state);
+  g_idle_add_once ((GSourceOnceFunc)gui_find_dispatch, gui);
+}
+
+static void
 gui_find_cb (GtkWidget *wid, gui_t *gui)
 {
-  GThread *th;
-
-  th = g_thread_try_new ("find", (GThreadFunc)gui_find_thread, gui, NULL);
-  g_thread_unref (th);
+  gui_signal_dispatch (gui, FDUPVES_FIND_STARTED);
 }
 
 static void
@@ -888,12 +892,75 @@ gui_wait_same_count (gui_t *gui)
   return g_slist_length (gui->same_list);
 }
 
-static void
-gui_find_thread (gui_t *gui)
+static int
+gui_find_thread_func (gui_t *gui)
 {
-  guint fimage, fvideo, faudio, febook;
+  guint fimage = 0;
+  guint fvideo = 0;
+  guint faudio = 0;
+  guint febook = 0;
 
-  /* disable the add/find tool time */
+  if (g_ini->proc_image && gui->images->len > 0)
+    {
+      g_message (_ ("find %u images to process"), gui->images->len);
+      find_images (gui->images, (find_step_cb)gui_find_step_cb, gui);
+      fimage = gui_wait_same_count (gui);
+      g_message (_ ("found %u groups of same images"), fimage);
+    }
+
+  if (g_ini->proc_video && gui->videos->len > 0)
+    {
+      g_message (_ ("find %u videos to process"), gui->videos->len);
+      if (g_ini->compare_area == FD_COMPARE_AUDIO_IN_VIDEO)
+        {
+          find_audios (gui->videos, (find_step_cb)gui_find_step_cb, gui);
+        }
+      else
+        {
+          find_videos (gui->videos, (find_step_cb)gui_find_step_cb, gui);
+        }
+      fvideo = gui_wait_same_count (gui);
+      fvideo -= fimage;
+      g_message (_ ("found %u groups of same videos"), fvideo);
+    }
+
+  if (g_ini->proc_audio && gui->audios->len > 0)
+    {
+      g_message (_ ("find %u audios to process"), gui->audios->len);
+      find_audios (gui->audios, (find_step_cb)gui_find_step_cb, gui);
+      faudio = gui_wait_same_count (gui);
+      faudio -= fimage;
+      faudio -= fvideo;
+      g_message (_ ("found %u groups of same audios"), faudio);
+    }
+
+  if (g_ini->proc_ebook && gui->ebooks->len > 0)
+    {
+      g_message (_ ("find %u ebooks to process"), gui->ebooks->len);
+      find_ebooks (gui->ebooks, (find_step_cb)gui_find_step_cb, gui);
+      febook = gui_wait_same_count (gui);
+      febook -= fimage;
+      febook -= fvideo;
+      febook -= faudio;
+      g_message (_ ("found %u groups of same ebooks"), febook);
+    }
+
+  gui_signal_dispatch (gui, FDUPVES_FIND_THREAD_FINISHED);
+  return 0;
+}
+
+static int
+gui_find_thread_start (gui_t *gui)
+{
+  GThread *thread;
+  thread = g_thread_new ("find", (GThreadFunc)gui_find_thread_func, gui);
+  g_thread_unref (thread);
+  return 0;
+}
+
+static void
+gui_find_started (gui_t *gui)
+{
   gtk_widget_set_sensitive (GTK_WIDGET (gui->but_add), FALSE);
   gtk_widget_set_sensitive (GTK_WIDGET (gui->but_find), FALSE);
   gtk_widget_set_sensitive (GTK_WIDGET (gui->but_del), FALSE);
@@ -913,62 +980,20 @@ gui_find_thread (gui_t *gui)
   gui->audios = g_ptr_array_new_with_free_func (g_free);
   gui->ebooks = g_ptr_array_new_with_free_func (g_free);
 
+  gui_signal_dispatch (gui, FDUPVES_FIND_SCAN_FILE);
+}
+
+static void
+gui_find_scan_file (gui_t *gui)
+{
   gtk_tree_model_foreach (GTK_TREE_MODEL (gui->dir_store),
                           (GtkTreeModelForeachFunc)dir_find_item, gui);
+  gui_signal_dispatch (gui, FDUPVES_FIND_THREAD_START);
+}
 
-  fimage = 0;
-  if (g_ini->proc_image && gui->images->len > 0)
-    {
-      g_message (_ ("find %d images to process"), gui->images->len);
-
-      find_images (gui->images, (find_step_cb)gui_find_step_cb, gui);
-      fimage = gui_wait_same_count (gui);
-      g_message (_ ("find %d groups same images"), fimage);
-    }
-
-  fvideo = 0;
-  if (g_ini->proc_video && gui->videos->len > 0)
-    {
-      g_message (_ ("find %d videos to process"), gui->videos->len);
-
-      if (g_ini->compare_area == FD_COMPARE_AUDIO_IN_VIDEO)
-        {
-          find_audios (gui->videos, (find_step_cb)gui_find_step_cb, gui);
-        }
-      else
-        {
-          find_videos (gui->videos, (find_step_cb)gui_find_step_cb, gui);
-        }
-      fvideo = gui_wait_same_count (gui);
-      fvideo -= fimage;
-      g_message (_ ("find %d groups same videos"), fvideo);
-    }
-
-  faudio = 0;
-  if (g_ini->proc_audio && gui->audios->len > 0)
-    {
-      g_message (_ ("find %d audios to process"), gui->audios->len);
-
-      find_audios (gui->audios, (find_step_cb)gui_find_step_cb, gui);
-      faudio = gui_wait_same_count (gui);
-      faudio -= fimage;
-      faudio -= fvideo;
-      g_message (_ ("find %d groups same audios"), faudio);
-    }
-
-  febook = 0;
-  if (g_ini->proc_ebook && gui->ebooks->len > 0)
-    {
-      g_message (_ ("find %d ebooks to process"), gui->ebooks->len);
-
-      find_ebooks (gui->ebooks, (find_step_cb)gui_find_step_cb, gui);
-      febook = gui_wait_same_count (gui);
-      febook -= fimage;
-      febook -= fvideo;
-      febook -= faudio;
-      g_message (_ ("find %d groups same ebooks"), febook);
-    }
-
+static void
+gui_find_finished (gui_t *gui)
+{
   g_ptr_array_free (gui->images, TRUE);
   g_ptr_array_free (gui->videos, TRUE);
   g_ptr_array_free (gui->audios, TRUE);
@@ -979,10 +1004,37 @@ gui_find_thread (gui_t *gui)
   gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (gui->progress), 0);
   gtk_progress_bar_set_text (GTK_PROGRESS_BAR (gui->progress), "");
 
-  /* disable the add/find tool time */
+  /* enable the add/find tool */
   gtk_widget_set_sensitive (GTK_WIDGET (gui->but_add), TRUE);
   gtk_widget_set_sensitive (GTK_WIDGET (gui->but_find), TRUE);
   gtk_widget_set_sensitive (GTK_WIDGET (gui->but_del), TRUE);
+
+  g_atomic_int_set (&gui->state, FDUPVES_FIND_INIT);
+}
+
+static void
+gui_find_dispatch (gui_t *gui)
+{
+  switch (g_atomic_int_get (&gui->state))
+    {
+    case FDUPVES_FIND_STARTED:
+      gui_find_started (gui);
+      break;
+
+    case FDUPVES_FIND_SCAN_FILE:
+      gui_find_scan_file (gui);
+      break;
+
+    case FDUPVES_FIND_THREAD_START:
+      gui_find_thread_start (gui);
+      break;
+
+    case FDUPVES_FIND_INIT:
+    case FDUPVES_FIND_THREAD_FINISHED:
+    case FDUPVES_FIND_ERROR:
+    default:
+      gui_find_finished (gui);
+    }
 }
 
 static void
@@ -1607,31 +1659,45 @@ result_opendir (GtkMenuItem *item, gui_t *gui)
 }
 
 static void
-gui_scroll_origin (gui_t *gui)
+gui_tree_store_get_iter (GtkTreeStore *store, GtkTreeIter *itrc,
+                         GtkTreeIter *itr, int index)
 {
-  GtkAdjustment *vadjustment
-      = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (gui->result_tree));
-  gtk_tree_view_expand_all (GTK_TREE_VIEW (gui->result_tree));
-  gtk_adjustment_set_value (vadjustment, gui->scroll_value);
+  if (!gtk_tree_model_iter_nth_child (GTK_TREE_MODEL (store), itrc, itr,
+                                      index))
+    {
+      gtk_tree_store_append (gui->result_store, itrc, itr);
+    }
+}
+
+static void
+gui_tree_store_iter_set_count (GtkTreeStore *store, GtkTreeIter *itr,
+                               int count)
+{
+  GtkTreeIter itrc[1];
+  int index_cnt;
+
+  index_cnt = gtk_tree_model_iter_n_children (GTK_TREE_MODEL (store), itr);
+  while (index_cnt > count)
+    {
+      gtk_tree_model_iter_nth_child (GTK_TREE_MODEL (store), itrc, itr,
+                                     index_cnt - 1);
+      gtk_tree_store_remove (store, itrc);
+      index_cnt = gtk_tree_model_iter_n_children (GTK_TREE_MODEL (store), itr);
+    }
 }
 
 static void
 gui_filter_result (gui_t *gui, const gchar *filter)
 {
   GtkTreeIter itr[1], itrc[1];
+  gint index, index_c;
   GtkTreePath *path;
   GSList *nodelist, *filelist;
   same_node *node;
   file_node *fn;
   gboolean match;
 
-  GtkAdjustment *vadjustment
-      = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (gui->result_tree));
-  gui->scroll_value = gtk_adjustment_get_value (vadjustment);
-
-  gtk_tree_store_clear (gui->result_store);
-
-  for (nodelist = gui->same_list; nodelist != NULL;
+  for (index = 0, nodelist = gui->same_list; nodelist != NULL;
        nodelist = g_slist_next (nodelist))
     {
       node = (same_node *)nodelist->data;
@@ -1671,7 +1737,7 @@ gui_filter_result (gui_t *gui, const gchar *filter)
 
       if (match)
         {
-          gtk_tree_store_append (gui->result_store, itr, NULL);
+          gui_tree_store_get_iter (gui->result_store, itr, NULL, index++);
           fn = node->files->data;
           file_node_to_tree_iter (fn, gui->result_store, itr);
 
@@ -1681,19 +1747,21 @@ gui_filter_result (gui_t *gui, const gchar *filter)
               GTK_TREE_MODEL (gui->result_store), path);
           gtk_tree_path_free (path);
 
-          for (filelist = g_slist_next (node->files); filelist != NULL;
-               filelist = g_slist_next (filelist))
+          for (index_c = 0, filelist = g_slist_next (node->files);
+               filelist != NULL; filelist = g_slist_next (filelist))
             {
-              gtk_tree_store_append (gui->result_store, itrc, itr);
+              gui_tree_store_get_iter (gui->result_store, itrc, itr,
+                                       index_c++);
               fn = filelist->data;
               file_node_to_tree_iter (fn, gui->result_store, itrc);
             }
+          gui_tree_store_iter_set_count (gui->result_store, itr, index_c);
 
           node->show = TRUE;
         }
     }
 
-  g_idle_add_once ((GSourceOnceFunc)gui_scroll_origin, gui);
+  gui_tree_store_iter_set_count (gui->result_store, NULL, index);
 }
 
 #ifdef WIN32
