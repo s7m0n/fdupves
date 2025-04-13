@@ -187,7 +187,7 @@ video_time_screenshot (const char *file, int time, int width, int height,
   frame = av_frame_alloc ();
   if (frame == NULL)
     {
-      avcodec_close (codec_ctx);
+      avcodec_free_context (&codec_ctx);
       avformat_close_input (&format_ctx);
       return -1;
     }
@@ -195,7 +195,7 @@ video_time_screenshot (const char *file, int time, int width, int height,
   if (frame_rgb == NULL)
     {
       av_frame_free (&frame);
-      avcodec_close (codec_ctx);
+      avcodec_free_context (&codec_ctx);
       avformat_close_input (&format_ctx);
       return -1;
     }
@@ -206,7 +206,7 @@ video_time_screenshot (const char *file, int time, int width, int height,
     {
       av_frame_free (&frame);
       av_frame_free (&frame_rgb);
-      avcodec_close (codec_ctx);
+      avcodec_free_context (&codec_ctx);
       avformat_close_input (&format_ctx);
       return -1;
     }

@@ -31,17 +31,10 @@
 
 #define FDUPVES_EBOOK_HASH_MAX (64)
 
-extern int pdf_hash (const char *file, ebook_hash_t *ehash);
-
-extern int epub_hash (const char *file, ebook_hash_t *ehash);
-
-extern int mobi_hash (const char *file, ebook_hash_t *ehash);
+extern int ebook_hash (const char *file, ebook_hash_t *ehash);
 
 typedef enum
 {
-  FDUPVES_EBOOK_PDF = 0,
-  FDUPVES_EBOOK_EPUB,
-  FDUPVES_EBOOK_MOBI,
   FDUPVES_EBOOK_UNKOWN
 } fdupves_ebook_type;
 
@@ -51,26 +44,10 @@ struct ebook_impl
   const char *type_prefix;
 
   int (*func) (const char *, ebook_hash_t *);
-} ebook_impls[FDUPVES_EBOOK_UNKOWN] = {
-  {
-      FDUPVES_EBOOK_PDF,
-      "pdf",
-      pdf_hash,
-  },
-  {
-      FDUPVES_EBOOK_EPUB,
-      "epub",
-      epub_hash,
-  },
-  {
-      FDUPVES_EBOOK_MOBI,
-      "mobi",
-      mobi_hash,
-  },
-};
+} ebook_impls[FDUPVES_EBOOK_UNKOWN] = {};
 
 static struct ebook_impl *
-ebook_find_impl (const char *file)
+find_extra_impl (const char *file)
 {
   const char *p;
   int i;
@@ -98,13 +75,15 @@ ebook_file_hash (const char *file, ebook_hash_t *ehash)
   if (cache_get_ebook (g_cache, file, ehash))
     return 0;
 
-  impl = ebook_find_impl (file);
-  if (impl == NULL)
+  impl = find_extra_impl (file);
+  if (impl != NULL)
     {
-      return -1;
+      ret = impl->func (file, ehash);
     }
-
-  ret = impl->func (file, ehash);
+  else
+    {
+      ret = ebook_hash (file, ehash);
+    }
   if (ret == 0)
     {
       cache_set_ebook (g_cache, file, ehash);

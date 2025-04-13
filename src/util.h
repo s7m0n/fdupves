@@ -72,15 +72,4 @@ int is_audio (const gchar *);
 
 int is_ebook (const gchar *);
 
-xmlNodeSetPtr xmldoc_get_nodeset (xmlDocPtr doc, const char *xpath,
-                                  const char *ns, const char *url);
-
-xmlNodePtr xmldoc_get_node (xmlDocPtr doc, const char *xpath, const char *ns,
-                            const char *url);
-
-const gchar *xml_get_value (const gchar *content, const gchar *xpath,
-                            gchar *out, size_t outlen);
-
-char *xmlnode_attr_get (xmlNodePtr node, const char *attr);
-
 #endif

@@ -30,9 +30,7 @@ SET(SOURCES
         audio.c
         image.c
         ebook.c
-        ebook_pdf.c
-        ebook_epub.c
-        ebook_mobi.c
+        ebook_mupdf.c
         cache.c
         ../sqlite3/sqlite3.c
         ../fingerprint/fingerprint.cpp
@@ -58,18 +56,15 @@ TARGET_LINK_LIBRARIES(fdupves
         ${GTK_LIBRARIES}
         ${FFMPEG_LIBRARIES}
         ${OPENCV_LIBRARIES}
-        ${XML_LIBRARIES}
-        ${POPPLER_LIBRARIES}
-        )
+        ${MUPDF_LIBRARIES})
 
 ADD_EXECUTABLE(test_mod ${SOURCES} test_mod.c)
 TARGET_LINK_LIBRARIES(test_mod
         ${REQ_LIBRARIES}
         ${GTK_LIBRARIES}
         ${FFMPEG_LIBRARIES}
-        ${XML_LIBRARIES}
-        ${POPPLER_LIBRARIES}
-        ${OPENCV_LIBRARIES})
+        ${OPENCV_LIBRARIES}
+        ${MUPDF_LIBRARIES})
 
 INSTALL(TARGETS fdupves DESTINATION bin)
 IF (WIN32)

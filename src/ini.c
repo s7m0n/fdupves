@@ -44,7 +44,7 @@ ini_new ()
   const gchar *const vsuffix = "avi,mp4,mpg,rmvb,rm,mov,mkv,m4v,mpg,mpeg,vob,"
                                "asf,wmv,3gp,flv,mod,swf,mts,m2ts,ts";
   const gchar *const asuffix = "mp3,wma,wav,ogg,amr,m4a,mka,aac";
-  const gchar *const esuffix = "pdf,epub";
+  const gchar *const esuffix = "pdf,xps,epub,mobi,fb2,cbz,svg,txt";
 
   ini = g_malloc0 (sizeof (ini_t));
   g_return_val_if_fail (ini, NULL);
