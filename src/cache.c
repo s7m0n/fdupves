@@ -27,13 +27,12 @@
 #include "cache.h"
 #include "audio.h"
 
+#include <ctype.h>
+#include <errno.h>
 #include <glib.h>
 #include <glib/gstdio.h>
-
-#include <errno.h>
 #include <sqlite3.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 cache_t *g_cache;
@@ -52,9 +51,8 @@ struct cache_s
   gchar *file;
 };
 
-static gboolean cache_exec (cache_t *cache,
-                            int (*cb) (void *, int, char **, char **),
-                            void *arg, const char *fmt, ...);
+static gboolean cache_exec (cache_t *cache, int (*cb) (sqlite3_stmt *, void *),
+                            void *arg, const char *sql, const char *fmt, ...);
 
 const char *init_text
     = "create table media(id INTEGER PRIMARY KEY AUTOINCREMENT, path text, "
@@ -71,7 +69,15 @@ const char *init_text
 static void
 cache_init (cache_t *cache)
 {
-  cache_exec (cache, NULL, NULL, init_text);
+  char *errmsg = NULL;
+  if (sqlite3_exec (cache->db, init_text, NULL, NULL, &errmsg) != 0)
+    {
+      g_warning ("init cache file error: %s", errmsg ? errmsg : "uknown");
+      if (errmsg)
+        {
+          sqlite3_free (errmsg);
+        }
+    }
 }
 
 cache_t *
@@ -124,73 +130,111 @@ cache_close (cache_t *cache)
 }
 
 static gboolean
-cache_exec (cache_t *cache, int (*cb) (void *, int, char **, char **),
-            void *arg, const char *fmt, ...)
+cache_exec (cache_t *cache, int (*cb) (sqlite3_stmt *, void *), void *arg,
+            const char *sql, const char *fmt, ...)
 {
   int rc;
   va_list ap;
-  char text[1024], *errMsg;
+  const char *errMsg;
+  sqlite3_stmt *stmt = NULL;
+  int index;
+  int valuei;
+  long valuel;
+  const char *values;
+  double valued;
 
-  va_start (ap, fmt);
-  vsnprintf (text, sizeof text, fmt, ap);
-  va_end (ap);
-
-  rc = sqlite3_exec (cache->db, text, cb, arg, &errMsg);
-  if (rc != SQLITE_OK)
+  if (sqlite3_prepare_v2 (cache->db, sql, -1, &stmt, NULL) != SQLITE_OK)
     {
-      g_warning ("SQL error: %s in [%s]", errMsg, text);
-      sqlite3_free (errMsg);
       return FALSE;
     }
+
+  for (index = 1, va_start (ap, fmt); *fmt; fmt++)
+    {
+      if (*fmt == '%' || *fmt == ',' || isspace (*fmt))
+        continue;
+
+      if (*fmt == 'd')
+        {
+          valuei = va_arg (ap, int);
+          sqlite3_bind_int (stmt, index++, valuei);
+        }
+      else if (*fmt == 'l')
+        {
+          valuel = va_arg (ap, long);
+          sqlite3_bind_int64 (stmt, index++, valuel);
+        }
+      else if (*fmt == 'f')
+        {
+          valued = va_arg (ap, double);
+          sqlite3_bind_double (stmt, index++, valued);
+        }
+      else if (*fmt == 's')
+        {
+          values = va_arg (ap, const char *);
+          sqlite3_bind_text (stmt, index++, values, strlen(values), NULL);
+        }
+    }
+  va_end (ap);
+
+  rc = sqlite3_step (stmt);
+  while (rc == SQLITE_ROW)
+    {
+      if (cb)
+        {
+          cb (stmt, arg);
+        }
+      rc = sqlite3_step (stmt);
+    }
+
+  if (rc != SQLITE_DONE)
+    {
+      errMsg = sqlite3_errstr (rc);
+      g_warning ("SQL error: %s in [%s]", errMsg, sql);
+      return FALSE;
+    }
+
+  sqlite3_reset (stmt);
+  sqlite3_finalize (stmt);
 
   return TRUE;
 }
 
 static int
-get_id_callback (void *para, int n_column, char **column_value,
-                 char **column_name)
+get_id_callback (sqlite3_stmt *stmt, void *para)
 {
-  int *idp = (int *)para;
-  if (column_value[0] != NULL)
-    *idp = atoi (column_value[0]);
+  *(int *) para = sqlite3_column_int (stmt, 0);
   return 0;
 }
 
 static int
-get_hash_callback (void *para, int n_column, char **column_value,
-                   char **column_name)
+get_hash_callback (sqlite3_stmt *stmt, void *para)
 {
   hash_t *hp = (hash_t *)para;
-  if (column_value[0] != NULL)
-    {
-      *hp = strtoull (column_value[0], NULL, 10);
-    }
+  *hp = sqlite3_column_int64 (stmt, 0);
   return 0;
 }
 
 static int
-get_hash_array_callback (void *para, int n_column, char **column_value,
-                         char **column_name)
+get_hash_array_callback (sqlite3_stmt *stmt, void *para)
 {
   audio_peak_hash hash;
+  const unsigned char *str;
   hash_array_t **pHashArray = (hash_array_t **)para;
 
-  if (column_value[1] != NULL)
+  if (*pHashArray == NULL)
     {
-      if (*pHashArray == NULL)
-        {
-          *pHashArray = hash_array_new ();
-        }
-      if (*pHashArray == NULL)
-        {
-          g_warning ("hash array new error: %s", strerror (errno));
-          return -1;
-        }
-
-      hash.offset = (int)strtof (column_value[0], NULL);
-      snprintf (hash.hash, sizeof hash.hash, "%s", column_value[1]);
-      hash_array_append (*pHashArray, &hash, sizeof (audio_peak_hash));
+      *pHashArray = hash_array_new ();
     }
+  if (*pHashArray == NULL)
+    {
+      g_warning ("hash array new error: %s", strerror (errno));
+      return -1;
+    }
+
+  hash.offset = sqlite3_column_int (stmt, 0);
+  str = sqlite3_column_text (stmt, 1);
+  snprintf (hash.hash, sizeof hash.hash, "%s", str);
+  hash_array_append (*pHashArray, &hash, sizeof (audio_peak_hash));
 
   return 0;
 }
@@ -201,26 +245,10 @@ cache_get_media_id (cache_t *cache, const gchar *file)
   int media_id;
   gboolean ret;
   const gchar *p;
-  gchar trans_file[PATH_MAX];
-  gsize trans_len;
-
-  for (trans_len = 0, p = file; *p && trans_len + 2 < sizeof (trans_file);
-       trans_len++, p++)
-    {
-      trans_file[trans_len] = *p;
-      if (*p == '\'')
-        {
-          trans_file[trans_len + 1] = *p;
-          trans_len++;
-        }
-    }
-  g_return_val_if_fail (trans_len + 2 < sizeof (trans_file), -1);
-  trans_file[trans_len] = '\0';
 
   media_id = -1;
-
   ret = cache_exec (cache, get_id_callback, &media_id,
-                    "select id from media where path='%s';", trans_file);
+                    "select id from media where path=?;", "%s", file);
   g_return_val_if_fail (ret, -1);
 
   if (media_id == -1)
@@ -235,20 +263,20 @@ cache_get_media_id (cache_t *cache, const gchar *file)
 #if WIN32
       ret = cache_exec (
           cache, NULL, NULL,
-          "insert into media(path, size, mtime) values('%s', %ld, %ld);",
-          trans_file, buf->st_size, buf->st_mtime);
+          "insert into media(path, size, mtime) values(?, ?, ?);",
+          "%s, %l, %l", trans_file, buf->st_size, buf->st_mtime);
 #else
       ret = cache_exec (
           cache, NULL, NULL,
-          "insert into media(path, size, mtime) values('%s', %ld, %ld);",
-          trans_file, buf->st_size, buf->st_mtim.tv_sec);
+          "insert into media(path, size, mtime) values(?, ?, ?);",
+          "%s, %l, %l", file, buf->st_size, buf->st_mtim.tv_sec);
 #endif
       g_return_val_if_fail (ret, -1);
-    }
 
-  ret = cache_exec (cache, get_id_callback, &media_id,
-                    "select id from media where path='%s';", trans_file);
-  g_return_val_if_fail (ret, -1);
+      ret = cache_exec (cache, get_id_callback, &media_id,
+                        "select id from media where path=?;", "%s", file);
+      g_return_val_if_fail (ret, -1);
+    }
 
   return media_id;
 }
@@ -265,8 +293,8 @@ cache_get (cache_t *cache, const gchar *file, float off, int alg, hash_t *hp)
   *hp = 0;
   ret = cache_exec (
       cache, get_hash_callback, hp,
-      "select hash from hash where offset=%f and alg=%d and media_id=%d", off,
-      alg, media_id);
+      "select hash from hash where offset=? and alg=? and media_id=?",
+      "%f %d %d", off, alg, media_id);
   g_return_val_if_fail (ret, FALSE);
 
   return *hp != 0;
@@ -281,10 +309,10 @@ cache_set (cache_t *cache, const gchar *file, float off, int alg, hash_t h)
   media_id = cache_get_media_id (cache, file);
   g_return_val_if_fail (media_id != -1, FALSE);
 
-  ret = cache_exec (cache, NULL, NULL,
-                    "insert into hash(media_id, offset, alg, hash) values(%d, "
-                    "%f, %d, '%lld')",
-                    media_id, off, alg, h);
+  ret = cache_exec (
+      cache, NULL, NULL,
+      "insert into hash(media_id, offset, alg, hash) values(?, ?, ?, ?);",
+      "%d %f %d %l", media_id, off, alg, h);
   g_return_val_if_fail (ret, FALSE);
 
   return TRUE;
@@ -303,8 +331,8 @@ cache_gets (cache_t *cache, const gchar *file, int alg,
   *pHashArray = NULL;
   ret = cache_exec (
       cache, get_hash_array_callback, pHashArray,
-      "select offset, hash from hash where alg = %d and media_id = %d", alg,
-      media_id);
+      "select offset, hash from hash where alg = ? and media_id = ?;", "%d %d",
+      alg, media_id);
   g_return_val_if_fail (ret, FALSE);
 
   return (*pHashArray != NULL);
@@ -326,8 +354,9 @@ cache_sets (cache_t *cache, const gchar *file, int alg,
       hash = hash_array_index (hashArray, i);
       ret = cache_exec (cache, NULL, NULL,
                         "insert into hash(media_id, offset, alg, hash) "
-                        "values(%d, %d, %d, '%s')",
-                        media_id, hash->offset, alg, hash->hash);
+                        "values(?, ?, ?, ?);",
+                        "%d, %d, %d, %l", media_id, hash->offset, alg,
+                        hash->hash);
       g_return_val_if_fail (ret, FALSE);
     }
 
@@ -345,10 +374,12 @@ cache_set_ebook (cache_t *cache, const char *file, ebook_hash_t *h)
   return cache_exec (
       cache, NULL, NULL,
       "insert into ebook(media_id, hash, title, author, producer, "
-      "pubdate_year, pubdate_mon, pubdate_day, isbn) values(%d, "
-      "%lld, '%s', '%s', '%s', %d, %d, %d, '%s')",
-      media_id, h->cover_hash, h->title, h->author, h->producer,
-      h->public_date.year, h->public_date.month, h->public_date.day, h->isbn);
+      "pubdate_year, pubdate_mon, pubdate_day, isbn) values(?, ?, ?, ?, ?, "
+      "?, "
+      "?, ?, ?);",
+      "%d, %l, %s, %s, %s, %d, %d, %d, %s", media_id, h->cover_hash, h->title,
+      h->author, h->producer, h->public_date.year, h->public_date.month,
+      h->public_date.day, h->isbn);
 }
 
 struct ebook_result
@@ -358,45 +389,26 @@ struct ebook_result
 };
 
 static int
-get_ebook_callback (void *para, int n_column, char **column_value,
-                    char **column_name)
+get_ebook_callback (sqlite3_stmt *stmt, void *para)
 {
   struct ebook_result *result = para;
+  const unsigned char *str;
   ebook_hash_t *h = result->hash;
   result->got = 1;
 
-  if (column_value[2] != NULL)
-    {
-      h->cover_hash = strtoull (column_value[2], NULL, 10);
-    }
-  if (column_value[3] != NULL)
-    {
-      snprintf (h->title, sizeof (h->title), "%s", column_value[3]);
-    }
-  if (column_value[4] != NULL)
-    {
-      snprintf (h->author, sizeof (h->author), "%s", column_value[4]);
-    }
-  if (column_value[5] != NULL)
-    {
-      snprintf (h->producer, sizeof (h->producer), "%s", column_value[5]);
-    }
-  if (column_value[6] != NULL)
-    {
-      h->public_date.year = strtol (column_value[6], NULL, 10);
-    }
-  if (column_value[7] != NULL)
-    {
-      h->public_date.month = strtol (column_value[7], NULL, 10);
-    }
-  if (column_value[8] != NULL)
-    {
-      h->public_date.day = strtol (column_value[8], NULL, 10);
-    }
-  if (column_value[9] != NULL)
-    {
-      snprintf (h->isbn, sizeof (h->isbn), "%s", column_value[9]);
-    }
+  h->cover_hash = sqlite3_column_int64 (stmt, 2);
+  str = sqlite3_column_text (stmt, 3);
+  snprintf (h->title, sizeof (h->title), "%s", str);
+  str = sqlite3_column_text (stmt, 4);
+  snprintf (h->author, sizeof (h->author), "%s", str);
+  str = sqlite3_column_text (stmt, 5);
+  snprintf (h->producer, sizeof (h->producer), "%s", str);
+  h->public_date.year = sqlite3_column_int (stmt, 6);
+  h->public_date.month = sqlite3_column_int (stmt, 7);
+  h->public_date.day = sqlite3_column_int (stmt, 8);
+  str = sqlite3_column_text (stmt, 9);
+  snprintf (h->isbn, sizeof (h->isbn), "%s", str);
+
   return 0;
 }
 
@@ -413,9 +425,21 @@ cache_get_ebook (cache_t *cache, const char *file, ebook_hash_t *h)
   result->got = 0;
   result->hash = h;
   ret = cache_exec (cache, get_ebook_callback, result,
-                    "select * from ebook where media_id=%d", media_id);
+                    "select * from ebook where media_id=?;", "%d", media_id);
   g_return_val_if_fail (ret, FALSE);
   return result->got == 1;
+}
+
+static void
+cache_remove_by_id (cache_t *cache, int media_id)
+{
+  cache_exec (cache, NULL, NULL, "delete from ebook where media_id=?;", "%d",
+              media_id);
+  cache_exec (cache, NULL, NULL, "delete from hash where media_id=?;", "%d",
+              media_id);
+
+  cache_exec (cache, NULL, NULL, "delete from media where id=?;", "%d",
+              media_id);
 }
 
 gboolean
@@ -426,33 +450,22 @@ cache_remove (cache_t *cache, const gchar *file)
   media_id = cache_get_media_id (cache, file);
   g_return_val_if_fail (media_id != -1, FALSE);
 
-  cache_exec (cache, NULL, NULL, "delete from hash where media_id=%d;",
-              media_id);
-
-  cache_exec (cache, NULL, NULL, "delete from media where id=%d;", media_id);
-
+  cache_remove_by_id (cache, media_id);
   return TRUE;
 }
 
 static int
-cache_remove_if_no_exists_callback (void *para, int n_column,
-                                    char **column_value, char **column_name)
+cache_remove_if_no_exists_callback (sqlite3_stmt *stmt, void *para)
 {
   cache_t *cache = (cache_t *)para;
-  char *path;
+  const char *path;
   int media_id;
 
-  if (column_value[0] != NULL)
+  path = (const char *)sqlite3_column_text (stmt, 1);
+  if (g_file_test (path, G_FILE_TEST_EXISTS) == FALSE)
     {
-      path = column_value[1];
-      if (g_file_test (path, G_FILE_TEST_EXISTS) == FALSE)
-        {
-          media_id = atoi (column_value[0]);
-          cache_exec (cache, NULL, NULL, "delete from hash where media_id=%d;",
-                      media_id);
-          cache_exec (cache, NULL, NULL, "delete from media where id=%d;",
-                      media_id);
-        }
+      media_id = sqlite3_column_int (stmt, 0);
+      cache_remove_by_id (cache, media_id);
     }
   return 0;
 }
@@ -461,5 +474,5 @@ void
 cache_cleanup (cache_t *cache)
 {
   cache_exec (cache, cache_remove_if_no_exists_callback, cache,
-              "select id, path from media;");
+              "select id, path from media;", "");
 }

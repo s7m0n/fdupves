@@ -32,19 +32,31 @@
 static void
 pdf_get_cover_hash (fz_context *ctx, fz_document *doc, ebook_hash_t *ehash)
 {
+  GdkPixbuf *pixbuf;
+  GdkPixbuf *hashbuf;
   fz_matrix scale = fz_scale (1.0, 1.0);
   fz_matrix mat = fz_pre_rotate (scale, 0.0);
   fz_colorspace *color = fz_device_rgb (ctx);
   fz_pixmap *pixmap
       = fz_new_pixmap_from_page_number (ctx, doc, 0, mat, color, 0);
-  if (pixmap == nullptr)
+  if (pixmap == NULL)
     {
       return;
     }
 
-  ehash->cover_hash = image_buffer_hash ((const char *)pixmap->samples,
-                                         pixmap->w * pixmap->h * pixmap->n);
+  pixbuf = gdk_pixbuf_new_from_data (pixmap->samples, GDK_COLORSPACE_RGB, FALSE, 8, pixmap->w, pixmap->h, pixmap->stride, NULL, NULL);
+  if (pixbuf == NULL)
+    {
+      fz_drop_pixmap (ctx, pixmap);
+      return;
+    }
 
+  hashbuf = gdk_pixbuf_scale_simple (pixbuf, 8, 8, GDK_INTERP_BILINEAR);
+  g_object_unref (pixbuf);
+
+  ehash->cover_hash = image_buffer_hash (gdk_pixbuf_get_pixels (hashbuf),
+                                         pixmap->w * pixmap->h * pixmap->n);
+  g_object_unref (hashbuf);
   fz_drop_pixmap (ctx, pixmap);
 }
 

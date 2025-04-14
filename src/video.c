@@ -51,12 +51,13 @@ video_get_info (const char *file)
       return NULL;
     }
 
+  /*
   if (avformat_find_stream_info (fmt_ctx, NULL) < 0)
     {
       g_warning (_ ("could not find stream infomations: %s"), file);
       avformat_close_input (&fmt_ctx);
       return NULL;
-    }
+    }*/
 
   s = av_find_best_stream (fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
   if (s < 0)
@@ -134,12 +135,13 @@ video_time_screenshot (const char *file, int time, int width, int height,
       return -1;
     }
 
+  /*
   if (avformat_find_stream_info (format_ctx, NULL) < 0)
     {
       g_warning (_ ("could not find stream infomations: %s"), file);
       avformat_close_input (&format_ctx);
       return -1;
-    }
+    }*/
 
   s = av_find_best_stream (format_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
   if (s < 0)
@@ -149,7 +151,16 @@ video_time_screenshot (const char *file, int time, int width, int height,
       return -1;
     }
 
-  codec_ctx = avcodec_alloc_context3 (NULL);
+  codec = avcodec_find_decoder (format_ctx->streams[s]->codecpar->codec_id);
+  if (codec == NULL)
+    {
+      g_warning (_ ("Unsupported codec: %s"), file);
+      avcodec_free_context (&codec_ctx);
+      avformat_close_input (&format_ctx);
+      return -1;
+    }
+
+  codec_ctx = avcodec_alloc_context3 (codec);
   if (codec_ctx == NULL)
     {
       g_warning (_ ("Memory error: %s"), file);
@@ -169,20 +180,6 @@ video_time_screenshot (const char *file, int time, int width, int height,
 
   codec_ctx->pkt_timebase = format_ctx->streams[s]->time_base;
   // av_codec_set_pkt_timebase (codec_ctx, format_ctx->streams[s]->time_base);
-  codec = avcodec_find_decoder (codec_ctx->codec_id);
-  if (codec == NULL)
-    {
-      g_warning (_ ("Unsupported codec: %s"), file);
-      avcodec_free_context (&codec_ctx);
-      avformat_close_input (&format_ctx);
-      return -1;
-    }
-
-  if (avcodec_open2 (codec_ctx, codec, NULL) < 0)
-    {
-      avformat_close_input (&format_ctx);
-      return -1;
-    }
 
   frame = av_frame_alloc ();
   if (frame == NULL)
