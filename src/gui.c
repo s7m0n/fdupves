@@ -171,7 +171,7 @@ static void gui_destroy_cb (GtkWidget *, GdkEvent *, gui_t *);
 
 static void gui_add_dir (gui_t *, const gchar *);
 
-static void gui_find_dispatch (gui_t *);
+static gboolean gui_find_dispatch (gui_t *);
 
 static void gui_save_directories (gui_t *);
 
@@ -822,7 +822,7 @@ static void
 gui_signal_dispatch (gui_t *gui, int state)
 {
   g_atomic_int_set (&gui->state, state);
-  g_idle_add_once ((GSourceOnceFunc)gui_find_dispatch, gui);
+  g_timeout_add (100, (GSourceFunc)gui_find_dispatch, gui);
 }
 
 static void
@@ -1012,7 +1012,7 @@ gui_find_finished (gui_t *gui)
   g_atomic_int_set (&gui->state, FDUPVES_FIND_INIT);
 }
 
-static void
+static gboolean
 gui_find_dispatch (gui_t *gui)
 {
   switch (g_atomic_int_get (&gui->state))
@@ -1035,6 +1035,7 @@ gui_find_dispatch (gui_t *gui)
     default:
       gui_find_finished (gui);
     }
+  return FALSE;
 }
 
 static void
@@ -1540,7 +1541,6 @@ resultsel_onchanged (GtkTreeSelection *sel, gui_t *gui)
 {
   GList *list, *cur;
   gsize i, cnt;
-  gchar *path;
   GtkTreeIter *itr;
 
   if (gui->result_file_nodes)
@@ -1596,7 +1596,8 @@ result_open (GtkMenuItem *item, gui_t *gui)
 #else
   gchar *filename;
 
-  filename = g_win32_locale_filename_from_utf8 (gui->resselfiles[0]->path);
+  filename
+      = g_win32_locale_filename_from_utf8 (gui->result_file_nodes[0]->path);
   if (filename)
     {
       ShellExecute (NULL, "open", filename, NULL, NULL, SW_SHOW);
@@ -1604,7 +1605,7 @@ result_open (GtkMenuItem *item, gui_t *gui)
     }
   else
     {
-      ShellExecute (NULL, "open", gui->resselfiles[0]->path, NULL, NULL,
+      ShellExecute (NULL, "open", gui->result_file_nodes[0]->path, NULL, NULL,
                     SW_SHOW);
     }
 #endif
@@ -1911,11 +1912,11 @@ result_delete (GtkMenuItem *item, gui_t *gui)
 #ifdef WIN32
           if (flags & FDUPVES_DEL_TOTRASH)
             {
-              ret = win32_remove (gui, gui->resselfiles[i]->path, TRUE);
+              ret = win32_remove (gui, gui->result_file_nodes[i]->path, TRUE);
             }
           else
             {
-              ret = win32_remove (gui, gui->resselfiles[i]->path, FALSE);
+              ret = win32_remove (gui, gui->result_file_nodes[i]->path, FALSE);
             }
 #else
           ret = g_remove (gui->result_file_nodes[i]->path);

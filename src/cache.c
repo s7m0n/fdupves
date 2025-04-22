@@ -244,7 +244,6 @@ cache_get_media_id (cache_t *cache, const gchar *file)
 {
   int media_id;
   gboolean ret;
-  const gchar *p;
 
   media_id = -1;
   ret = cache_exec (cache, get_id_callback, &media_id,
@@ -264,7 +263,7 @@ cache_get_media_id (cache_t *cache, const gchar *file)
       ret = cache_exec (
           cache, NULL, NULL,
           "insert into media(path, size, mtime) values(?, ?, ?);",
-          "%s, %l, %l", trans_file, buf->st_size, buf->st_mtime);
+          "%s, %l, %l", file, buf->st_size, buf->st_mtime);
 #else
       ret = cache_exec (
           cache, NULL, NULL,

@@ -20,18 +20,19 @@ ADD_DEFINITIONS(
 FIND_PACKAGE(PkgConfig)
 PKG_CHECK_MODULES(GTK gtk+-3.0 REQUIRED)
 IF (WIN32)
-    SET(FFMPEG_DIR "C:/ffmpeg"
+    SET(VCPKG_INSTALLED_DIR "C:/vcpkg/installed"
             CACHE PATH
-            "Ffmpeg library dir")
-    SET(FFMPEG_INCLUDE_DIRS ${FFMPEG_DIR}/include)
-    SET(FFMPEG_LIBRARY_DIRS ${FFMPEG_DIR}/lib)
+            "vcpkg installed dir")
+    SET(VCPKG_INSTALLED_X64_WINDOWS ${VCPKG_INSTALLED_DIR}/x64-windows)
+
+    SET(FFMPEG_INCLUDE_DIRS ${VCPKG_INSTALLED_X64_WINDOWS}/include)
+    SET(FFMPEG_LIBRARY_DIRS ${VCPKG_INSTALLED_X64_WINDOWS}/lib)
     SET(FFMPEG_LIBRARIES avformat.lib avcodec.lib avutil.lib swscale.lib swresample.lib)
-    SET(OPENCV_DIR "C:/opencv/build"
-            CACHE PATH
-            "opencv library dir")
-    SET(OPENCV_INCLUDE_DIRS ${OPENCV_DIR}/include)
-    SET(OPENCV_LIBRARY_DIRS ${OPENCV_DIR}/x64/vc15/lib)
-    SET(OPENCV_LIBRARIES opencv_world460.lib)
+    SET(OPENCV_INCLUDE_DIRS ${VCPKG_INSTALLED_X64_WINDOWS}/include/opencv4)
+    SET(OPENCV_LIBRARY_DIRS ${VCPKG_INSTALLED_X64_WINDOWS}/lib)
+    SET(OPENCV_LIBRARIES opencv_imgproc4.lib opencv_core4.lib)
+
+    SET(MUPDF_LIBRARIES libmupdf.lib openjp2.lib jpeg.lib jbig2dec.lib gumbo.lib)
 ELSE (WIN32)
     PKG_CHECK_MODULES(FFMPEG libavformat libavcodec libavutil libswscale libswresample REQUIRED)
     PKG_CHECK_MODULES(OPENCV opencv4 REQUIRED)
@@ -44,22 +45,17 @@ INCLUDE_DIRECTORIES(${GTK_INCLUDE_DIRS}
         ${FFMPEG_INCLUDE_DIRS}
         ${CMAKE_SOURCE_DIR}/sqlite3
         ${OPENCV_INCLUDE_DIRS}
-        )
+)
 LINK_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}
         ${GTK_LIBRARY_DIRS}
         ${FFMPEG_LIBRARY_DIRS}
         ${OPENCV_LIBRARY_DIRS}
-        )
+)
 
 IF (WIN32)
     SET(REQ_LIBRARIES windowscodecs.lib)
-    ADD_DEFINITIONS(-DWIN32
-            -D_CRT_SECURE_NO_WARNINGS
-            -D_USE_MATH_DEFINES
-            -DUINT64_C=
-            )
+    ADD_DEFINITIONS(-D_CRT_SECURE_NO_WARNINGS)
 ELSE (WIN32)
-    SET(REQ_LIBRARIES "-lepub")
     SET(CMAKE_CXX_FLAGS "-Wall -D_FILE_OFFSET_BITS=64 -Wno-deprecated-declarations")
 
     OPTION(FDUPVES_ENABLE_DEBUG "If build binary with debug infomations." OFF)
@@ -111,7 +107,7 @@ INSTALL(FILES
         TODO INSTALL NEWS
         DESTINATION share/fdupves)
 IF (WIN32)
-    #INSTALL(FILES ${FFMPEG_DIR}/LICENSE.txt
+    #INSTALL(FILES ${VCPKG_INSTALLED_X64_WINDOWS}/LICENSE.txt
     #        DESTINATION .)
 ENDIF (WIN32)
 
@@ -141,7 +137,7 @@ IF (UNIX)
             ".gitmodules"
             ".gitignore"
             "~$"
-            )
+    )
 ELSE (UNIX)
     SET(CPACK_GENERATOR NSIS)
     #  SET (CPACK_PACKAGE_ICON ${NSISDIR}/share/icons/fdupves.ico)

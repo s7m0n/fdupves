@@ -32,8 +32,6 @@
 
 #include <glib.h>
 #include <libintl.h>
-#include <libxml/tree.h>
-#include <libxml/xpath.h>
 
 /*
  * %s indicate the prefix

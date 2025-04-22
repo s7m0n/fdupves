@@ -35,7 +35,7 @@ extern int ebook_hash (const char *file, ebook_hash_t *ehash);
 
 typedef enum
 {
-  FDUPVES_EBOOK_UNKOWN
+  FDUPVES_EBOOK_UNKNOWN
 } fdupves_ebook_type;
 
 struct ebook_impl
@@ -44,7 +44,7 @@ struct ebook_impl
   const char *type_prefix;
 
   int (*func) (const char *, ebook_hash_t *);
-} ebook_impls[FDUPVES_EBOOK_UNKOWN] = {};
+} ebook_impls[] = { FDUPVES_EBOOK_UNKNOWN, "" };
 
 static struct ebook_impl *
 find_extra_impl (const char *file)
@@ -58,7 +58,7 @@ find_extra_impl (const char *file)
     {
       for (i = 0; i < sizeof ebook_impls / sizeof ebook_impls[0]; ++i)
         {
-          if (strcasecmp (p + 1, ebook_impls[i].type_prefix) == 0)
+          if (g_ascii_strcasecmp (p + 1, ebook_impls[i].type_prefix) == 0)
             return ebook_impls + i;
         }
     }

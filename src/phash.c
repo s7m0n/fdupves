@@ -24,14 +24,15 @@
  *  Author: Alf <naihe2010@126.com>
  */
 
+#include <glib.h>
+#include <libavutil/mathematics.h>
+#include <math.h>
+
 #include "cache.h"
 #include "hash.h"
 #include "image.h"
 #include "util.h"
 #include "video.h"
-
-#include <glib.h>
-#include <math.h>
 
 #define FDUPVES_PHASH_LEN 32
 #define FDUPVES_DCT_LEN 8
