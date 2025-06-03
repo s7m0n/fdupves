@@ -32,6 +32,7 @@
 #include <libavformat/avformat.h>
 #include <libavutil/opt.h>
 #include <libswresample/swresample.h>
+#include <libavutil/channel_layout.h>
 
 #include <glib.h>
 
@@ -129,6 +130,7 @@ audio_extract (const char *file, float offset, float length, int ar,
   int64_t seek_target;
   float total_length;
 
+
   if (avformat_open_input (&format_ctx, file, NULL, NULL) != 0)
     {
       g_warning (_ ("could not open: %s"), file);
@@ -211,6 +213,7 @@ audio_extract (const char *file, float offset, float length, int ar,
       g_warning (_ ("alloc packet error: %s"), file);
       goto end;
     }
+  
 
 #if LIBSWRESAMPLE_VERSION_INT < AV_VERSION_INT(4, 0, 100)
   // 旧版本API（swr_alloc_set_opts）
@@ -249,6 +252,7 @@ audio_extract (const char *file, float offset, float length, int ar,
     {
       g_warning (_ ("Could not allocate resampler context\n"));
       goto end;
+
     }
 
   /* initialize the resampling context */
@@ -324,6 +328,7 @@ audio_extract (const char *file, float offset, float length, int ar,
           g_warning (_ ("Could not resample samples.\n"));
           bytes = -1;
           goto end;
+
         }
 
       got_samples += ret;
@@ -338,6 +343,7 @@ end:
   if (convert_ctx)
     {
       swr_free (&convert_ctx);
+
     }
   if (packet)
     {
